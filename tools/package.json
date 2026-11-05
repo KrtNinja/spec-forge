@@ -4,10 +4,10 @@
   "type": "module",
   "engines": { "node": ">=22.5.1" },
   "scripts": {
-    "test": "node tools/check.mjs test",
-    "check": "node tools/check.mjs check",
-    "coverage": "node tools/check.mjs coverage",
-    "mutate": "node tools/check.mjs mutate"
+    "test": "node check.mjs test",
+    "check": "node check.mjs check",
+    "coverage": "node check.mjs coverage",
+    "mutate": "node check.mjs mutate"
   },
   "devDependencies": {
     "@eslint/js": "9.39.1",

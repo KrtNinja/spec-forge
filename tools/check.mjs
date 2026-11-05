@@ -19,8 +19,12 @@ function run(command, args) {
 
 /** @param {string} name @param {string[]} args */
 function bin(name, args) {
-  run(process.execPath, [`node_modules/${name}`, ...args]);
+  run(process.execPath, [`tools/node_modules/${name}`, ...args]);
 }
+
+// Проверки охватывают весь репозиторий, даже при запуске npm из tools.
+const root = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+process.chdir(root);
 
 const files = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8' })
   .split('\0').filter((file) => /\.(?:mjs|cjs|js)$/.test(file));
@@ -41,10 +45,10 @@ function test() {
 
 function check() {
   if (files.length === 0) return report('JavaScript-файлов пока нет.');
-  bin('eslint/bin/eslint.js', ['--max-warnings=0', ...files]);
+  bin('eslint/bin/eslint.js', ['--config', 'tools/eslint.config.mjs', '--max-warnings=0', ...files]);
   bin('typescript/bin/tsc', [
     '--allowJs', '--checkJs', '--noEmit', '--strict', '--skipLibCheck',
-    '--target', 'ES2022', '--module', 'NodeNext', '--types', 'node', ...files
+    '--target', 'ES2022', '--module', 'NodeNext', '--typeRoots', 'tools/node_modules/@types', '--types', 'node', ...files
   ]);
   duplicates(code, '2', 'code');
   duplicates(tests, '10', 'tests');
@@ -72,7 +76,7 @@ function mutate() {
   if (product.length === 0) return report('Рабочего кода пока нет — мутационные тесты не выполнялись.');
   run('mutator', [
     '--no-coverage', '--mutate-all', '--max-workers', '2',
-    '--test-command', 'npm test', ...product
+    '--test-command', 'npm --prefix tools test', ...product
   ]);
 }
 
