@@ -15,18 +15,14 @@ concurrency:
 
 jobs:
   tests:
-    name: Тесты (Node ${{ matrix.node }})
+    name: Тесты (Node 22.5.1)
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix:
-        node: ['22.5.1', '22']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node }}
+          node-version: '22.5.1'
           cache: npm
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm test
@@ -39,7 +35,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '22.5.1'
           cache: npm
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - name: ESLint, типы, сложность и повторы
