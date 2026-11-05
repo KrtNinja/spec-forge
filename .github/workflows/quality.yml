@@ -24,8 +24,9 @@ jobs:
         with:
           node-version: '22.5.1'
           cache: npm
-      - run: npm ci --ignore-scripts --no-audit --no-fund
-      - run: npm test
+          cache-dependency-path: tools/package-lock.json
+      - run: npm --prefix tools ci --ignore-scripts --no-audit --no-fund
+      - run: npm --prefix tools test
 
   quality:
     name: Качество JavaScript
@@ -37,11 +38,12 @@ jobs:
         with:
           node-version: '22.5.1'
           cache: npm
-      - run: npm ci --ignore-scripts --no-audit --no-fund
+          cache-dependency-path: tools/package-lock.json
+      - run: npm --prefix tools ci --ignore-scripts --no-audit --no-fund
       - name: ESLint, типы, сложность и повторы
-        run: npm run check
+        run: npm --prefix tools run check
       - name: Тесты с покрытием
-        run: npm run coverage
+        run: npm --prefix tools run coverage
       - uses: actions/upload-artifact@v4
         if: always()
         with:

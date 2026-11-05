@@ -14,15 +14,15 @@ function fixture(files, command) {
     execFileSync('git', ['init', '-q'], { cwd });
     mkdirSync(join(cwd, 'tools'));
     copyFileSync(join(root, 'tools/check.mjs'), join(cwd, 'tools/check.mjs'));
-    copyFileSync(join(root, 'eslint.config.mjs'), join(cwd, 'eslint.config.mjs'));
-    symlinkSync(join(root, 'node_modules'), join(cwd, 'node_modules'), 'dir');
+    copyFileSync(join(root, 'tools/eslint.config.mjs'), join(cwd, 'tools/eslint.config.mjs'));
+    symlinkSync(join(root, 'tools/node_modules'), join(cwd, 'tools/node_modules'), 'dir');
     writeFileSync(join(cwd, 'package.json'), '{"type":"module"}');
     for (const [name, content] of Object.entries(files)) writeFileSync(join(cwd, name), content);
-    execFileSync('git', ['add', 'tools', 'eslint.config.mjs', 'package.json', ...Object.keys(files)], { cwd });
+    execFileSync('git', ['add', 'tools', 'package.json', ...Object.keys(files)], { cwd });
     const env = { ...process.env };
     delete env.GITHUB_STEP_SUMMARY;
     delete env.NODE_TEST_CONTEXT;
-    return spawnSync(process.execPath, [join(root, 'tools/check.mjs'), command], { cwd, env, encoding: 'utf8' });
+    return spawnSync(process.execPath, [join(root, 'tools/check.mjs'), command], { cwd: join(cwd, 'tools'), env, encoding: 'utf8' });
   } finally {
     rmSync(cwd, { recursive: true, force: true });
   }

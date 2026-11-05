@@ -26,10 +26,11 @@ jobs:
         with:
           node-version: '22.5.1'
           cache: npm
+          cache-dependency-path: tools/package-lock.json
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm --prefix tools ci --ignore-scripts --no-audit --no-fund
       - name: Установка mutator
         shell: bash
         run: |
@@ -40,9 +41,9 @@ jobs:
             git -C "$RUNNER_TEMP/ub/$name" checkout --quiet "$sha"
           done
           pip install "$RUNNER_TEMP/ub/crapper" "$RUNNER_TEMP/ub/mutator"
-      - run: npm test
+      - run: npm --prefix tools test
       - name: Проверка всех мест мутаций
-        run: npm run mutate
+        run: npm --prefix tools run mutate
       - uses: actions/upload-artifact@v4
         if: always()
         with:
