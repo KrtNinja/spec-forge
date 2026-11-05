@@ -1,0 +1,52 @@
+name: mutation
+
+# Только ручной запуск владельцем. В PR и по расписанию не запускается.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mutation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mutation:
+    name: Мутационные тесты
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      CRAPPER_SHA: 6fd92c4c9bcc56efb64a2f8743d5a2993bcfd42d
+      MUTATOR_SHA: a5a0cb803b66e0cdb8bf471b3b08af701d424a41
+      NODE_OPTIONS: --max-old-space-size=1024
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.5.1'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Установка mutator
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/ub"
+          for entry in crapper:$CRAPPER_SHA mutator:$MUTATOR_SHA; do
+            name=${entry%%:*}; sha=${entry##*:}
+            git clone --quiet "https://github.com/unclebob/$name" "$RUNNER_TEMP/ub/$name"
+            git -C "$RUNNER_TEMP/ub/$name" checkout --quiet "$sha"
+          done
+          pip install "$RUNNER_TEMP/ub/crapper" "$RUNNER_TEMP/ub/mutator"
+      - run: npm test
+      - name: Проверка всех мест мутаций
+        run: npm run mutate
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mutation-reports
+          include-hidden-files: true
+          path: .metrics/mutate/
+          if-no-files-found: warn

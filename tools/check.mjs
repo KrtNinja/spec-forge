@@ -1,0 +1,85 @@
+// @ts-check
+import { execFileSync, spawnSync } from 'node:child_process';
+import { appendFileSync } from 'node:fs';
+
+/** @param {string} message */
+function report(message) {
+  console.log(message);
+  if (process.env.GITHUB_STEP_SUMMARY) {
+    appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${message}\n\n`);
+  }
+}
+
+/** @param {string} command @param {string[]} args */
+function run(command, args) {
+  const result = spawnSync(command, args, { stdio: 'inherit' });
+  if (result.error) throw result.error;
+  if (result.status !== 0) process.exit(result.status ?? 1);
+}
+
+/** @param {string} name @param {string[]} args */
+function bin(name, args) {
+  run(process.execPath, [`node_modules/${name}`, ...args]);
+}
+
+const files = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8' })
+  .split('\0').filter((file) => /\.(?:mjs|cjs|js)$/.test(file));
+const tests = files.filter((file) => /\.(?:test|spec)\.(?:mjs|cjs|js)$/.test(file));
+const code = files.filter((file) => !file.startsWith('tests/') && !tests.includes(file));
+const product = code.filter((file) => !file.startsWith('tools/') && !file.endsWith('.config.mjs'));
+const command = process.argv[2];
+
+if (product.length > 0 && tests.every((file) => file.startsWith('tools/'))) {
+  throw new Error('Есть рабочий JavaScript-код, но нет тестов продукта. Добавьте *.test.js, *.test.mjs или *.test.cjs.');
+}
+if (product.length === 0) report('Рабочего JavaScript-кода продукта пока нет. Проверяется только инфраструктура.');
+
+function test() {
+  if (tests.length === 0) return report('Тестов пока нет — проверка поведения не выполнялась.');
+  run(process.execPath, ['--test', ...tests]);
+}
+
+function check() {
+  if (files.length === 0) return report('JavaScript-файлов пока нет.');
+  bin('eslint/bin/eslint.js', ['--max-warnings=0', ...files]);
+  bin('typescript/bin/tsc', [
+    '--allowJs', '--checkJs', '--noEmit', '--strict', '--skipLibCheck',
+    '--target', 'ES2022', '--module', 'NodeNext', '--types', 'node', ...files
+  ]);
+  duplicates(code, '2', 'code');
+  duplicates(tests, '10', 'tests');
+}
+
+/** @param {string[]} paths @param {string} threshold @param {string} name */
+function duplicates(paths, threshold, name) {
+  if (paths.length === 0) return;
+  bin('jscpd/bin/jscpd', [
+    '--threshold', threshold, '--reporters', 'console,json',
+    '--output', `reports/duplicates-${name}`, ...paths
+  ]);
+}
+
+function coverage() {
+  if (tests.length === 0) return report('Тестов пока нет — покрытие не измерялось.');
+  bin('c8/bin/c8.js', [
+    '--all', '--reporter=text', '--reporter=html', '--reporter=lcov',
+    ...code.flatMap((file) => ['--include', file]),
+    process.execPath, '--test', ...tests
+  ]);
+}
+
+function mutate() {
+  if (product.length === 0) return report('Рабочего кода пока нет — мутационные тесты не выполнялись.');
+  run('mutator', [
+    '--no-coverage', '--mutate-all', '--max-workers', '2',
+    '--test-command', 'npm test', ...product
+  ]);
+}
+
+switch (command) {
+  case 'test': test(); break;
+  case 'check': check(); break;
+  case 'coverage': coverage(); break;
+  case 'mutate': mutate(); break;
+  default: throw new Error(`Неизвестная проверка: ${command}`);
+}
