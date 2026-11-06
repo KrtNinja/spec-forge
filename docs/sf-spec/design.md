@@ -1,0 +1,10 @@
+# sf-spec: устройство
+
+Как выполнены [требования этапа](requirements.md). Опирается на [общее устройство](../core/design.md).
+
+Документы, которые скилл читает после `status`: `brainstorming.md`, `questions.md`, `spec.md`, если он есть.
+
+## Подготовка требований
+
+- Остаётся модели: FR-14, FR-15.
+- Для образца FR можно адаптировать шаблон `skills/sdd-spec/assets/spec.md` из sdd-planner.
