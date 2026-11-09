@@ -32,7 +32,7 @@
 2. **PR реализации** — из ветки от `criteria/block-N` в неё же. Меняет только `server/` (кроме `server/contract.mjs`), `skills/`, `rules/` и `gigacode-extension.json`. Если случай или проверка кажутся неверными, остановись и опиши проблему, не обходи её. Исправление критериев — коммит в ветку критериев с согласия владельца.
 3. После вливания реализации PR критериев проходит проверки и вливается в main.
 
-Поручение агенту реализации: «Блок N из docs/core/steps.md по правилам AGENTS.md: сделай так, чтобы прошли `npm --prefix tools test` и `npm --prefix tools run check`; PR — в ветку `criteria/block-N`».
+Поручение агенту реализации: «Работай от ветки `criteria/block-N`: блок N из docs/core/steps.md по правилам AGENTS.md. Сделай так, чтобы прошли `npm --prefix tools test` и `npm --prefix tools run check`; PR — в ветку `criteria/block-N`». Ветка указана в поручении потому, что до вливания критериев их нет в main — ни случаев, ни этого раздела.
 
 Формат случаев и состав проверок — в [tools/README.md](tools/README.md).
 
