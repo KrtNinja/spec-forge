@@ -4,7 +4,10 @@ import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-export const root = resolve(import.meta.dirname, '..');
+// Тесты запускаются из корня репозитория, и корень — текущая папка, а не место файла теста.
+// В мутационном прогоне тесты — ссылки на исходное дерево, а сервер с мутацией — копия
+// в рабочей папке: путь от файла теста привёл бы к неизменённому серверу.
+export const root = process.cwd();
 const server = resolve(root, 'server/mcp.mjs');
 const timeout = 2000;
 
@@ -96,7 +99,7 @@ async function until(ready, problem) {
  * @returns {Promise<any[]>} все сообщения сервера
  */
 export async function exchange(cwd, lines) {
-  if (!existsSync(server)) throw new Error('Нет server/mcp.mjs: сервер ещё не реализован.');
+  if (!existsSync(server)) throw new Error('Нет server/mcp.mjs: сервер ещё не реализован или тесты запущены не из корня репозитория.');
   const child = spawn(process.execPath, [server], { cwd });
   let stdout = '';
   let stderr = '';

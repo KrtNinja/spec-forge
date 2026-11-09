@@ -6,9 +6,9 @@ import assert from 'node:assert/strict';
 import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative, sep } from 'node:path';
-import { exchange, handshake, message } from './server.mjs';
+import { exchange, handshake, message, root } from './server.mjs';
 
-const cases = join(import.meta.dirname, 'mcp');
+const cases = join(root, 'tests', 'mcp');
 const answers = ['expected.md', 'error.md'];
 
 /** @param {string} dir */
