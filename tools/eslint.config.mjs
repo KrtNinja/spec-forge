@@ -10,6 +10,7 @@ export default [
     rules: {
       complexity: ['error', 9],
       'max-depth': ['error', 4],
+      'max-lines': ['error', { max: 350 }],
       'no-nested-ternary': 'error',
       'no-unused-vars': ['error', { args: 'after-used' }],
       'prefer-const': 'error'

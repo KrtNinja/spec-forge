@@ -1,0 +1,10 @@
+{
+  "name": "spec-forge",
+  "version": "0.1.0",
+  "mcpServers": {
+    "spec-forge": {
+      "command": "node",
+      "args": ["${extensionPath}/server/mcp.mjs"]
+    }
+  }
+}
