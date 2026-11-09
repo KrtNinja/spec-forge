@@ -6,7 +6,7 @@ import { resolve } from 'node:path';
 
 export const root = resolve(import.meta.dirname, '..');
 const server = resolve(root, 'server/mcp.mjs');
-const exitTimeout = 2000;
+const timeout = 2000;
 
 /**
  * Сообщение JSON-RPC 2.0 одной строкой. Без номера — уведомление.
@@ -50,43 +50,75 @@ function parseLine(line) {
   return reply;
 }
 
-/** @param {string} stdout */
+/**
+ * Сообщения из законченных строк вывода. Хвост без перевода строки ещё не сообщение.
+ * @param {string} stdout
+ */
 function parse(stdout) {
-  const lines = stdout.split('\n');
-  if (lines.at(-1) === '') lines.pop();
-  return lines.map(parseLine);
+  return stdout.split('\n').slice(0, -1).map(parseLine);
 }
 
 /**
- * Запускает сервер в папке cwd, передаёт строки и закрывает ввод.
- * Сервер должен ответить, сам завершиться с кодом 0 не дольше чем за 2 секунды
- * и выводить только сообщения JSON-RPC 2.0, по одному на строку.
+ * Номер ответа, которого ждём на строку: номер запроса, null для строки не JSON,
+ * undefined для уведомления — на него ответа нет.
+ * @param {string} line
+ * @returns {unknown}
+ */
+function expectedId(line) {
+  try {
+    return JSON.parse(line).id;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Ждёт условия не дольше 2 секунд.
+ * @param {() => boolean} ready
+ * @param {string} problem
+ */
+async function until(ready, problem) {
+  const deadline = Date.now() + timeout;
+  while (!ready()) {
+    if (Date.now() > deadline) throw new Error(problem);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
+/**
+ * Запускает сервер в папке cwd и передаёт строки по одной, как GigaCode:
+ * ввод открыт, на каждый запрос ответ ждём до отправки следующей строки.
+ * Затем закрывает ввод. Сервер должен выводить только сообщения JSON-RPC 2.0,
+ * по одному на строку, отвечать не дольше 2 секунд и после закрытия ввода
+ * сам завершаться с кодом 0 не дольше чем за 2 секунды.
  * @param {string} cwd
  * @param {string[]} lines
- * @returns {Promise<any[]>} разобранные сообщения сервера
+ * @returns {Promise<any[]>} все сообщения сервера
  */
-export function exchange(cwd, lines) {
+export async function exchange(cwd, lines) {
   if (!existsSync(server)) throw new Error('Нет server/mcp.mjs: сервер ещё не реализован.');
-  return new Promise((done, fail) => {
-    const child = spawn(process.execPath, [server], { cwd });
-    let stdout = '';
-    let stderr = '';
-    child.stdout.setEncoding('utf8').on('data', (chunk) => { stdout += chunk; });
-    child.stderr.setEncoding('utf8').on('data', (chunk) => { stderr += chunk; });
-    const timer = setTimeout(() => {
-      child.kill();
-      fail(new Error(`Сервер не завершился за 2 секунды после закрытия ввода.\n${stderr}`));
-    }, exitTimeout);
-    child.on('error', fail);
-    child.on('close', (code) => {
-      clearTimeout(timer);
-      if (code !== 0) return fail(new Error(`Сервер завершился с кодом ${code}.\n${stderr}`));
-      try {
-        done(parse(stdout));
-      } catch (error) {
-        fail(error);
-      }
-    });
-    child.stdin.end(lines.map((line) => `${line}\n`).join(''));
-  });
+  const child = spawn(process.execPath, [server], { cwd });
+  let stdout = '';
+  let stderr = '';
+  /** @type {number | null | undefined} */
+  let code;
+  child.stdout.setEncoding('utf8').on('data', (chunk) => { stdout += chunk; });
+  child.stderr.setEncoding('utf8').on('data', (chunk) => { stderr += chunk; });
+  child.stdin.on('error', () => {}); // сервер упал раньше времени — об этом скажет код завершения
+  child.on('close', (status) => { code = status; });
+  try {
+    for (const line of lines) {
+      child.stdin.write(`${line}\n`);
+      const id = expectedId(line);
+      if (id === undefined) continue;
+      await until(() => parse(stdout).some((reply) => reply.id === id), `Нет ответа при открытом вводе на: ${line}\n${stderr}`);
+    }
+    child.stdin.end();
+    await until(() => code !== undefined, `Сервер не завершился за 2 секунды после закрытия ввода.\n${stderr}`);
+  } finally {
+    child.kill();
+  }
+  if (code !== 0) throw new Error(`Сервер завершился с кодом ${code}.\n${stderr}`);
+  if (stdout !== '' && !stdout.endsWith('\n')) throw new Error('Последнее сообщение сервера без перевода строки.');
+  return parse(stdout);
 }

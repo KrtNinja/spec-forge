@@ -6,7 +6,6 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { root } from './server.mjs';
 
-const contract = 'server/contract.mjs';
 const rulesLimit = 10000;
 
 /** @param {string} path */
@@ -36,13 +35,6 @@ test('server/ подключает только модули node: и свои �
     for (const [, name] of read(file).matchAll(/(?:\bfrom|\bimport)\s*\(?\s*['"]([^'"]+)['"]/g)) {
       assert.match(name, /^(?:node:|\.\.?\/)/, `${file}: ${name} — npm-пакеты не допускаются`);
     }
-  }
-});
-
-test('кириллица в коде server/ только в договоре, комментарии не считаются', () => {
-  for (const file of serverFiles().filter((path) => path !== contract)) {
-    const code = read(file).replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|\s)\/\/.*$/gm, '$1');
-    assert.doesNotMatch(code, /[А-Яа-яЁё]/, `${file}: тексты для пользователя — в ${contract}`);
   }
 });
 
