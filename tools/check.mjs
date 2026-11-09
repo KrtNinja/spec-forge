@@ -72,11 +72,15 @@ function coverage() {
   ]);
 }
 
+// mutator запускает команду в рабочей папке, где изменённый файл — копия, а остальное — ссылки
+// на исходное дерево. Команда не ищет корень через git (это вернуло бы исходное дерево)
+// и запускает только тесты продукта: проверки tools/ от кода продукта не зависят.
 function mutate() {
   if (product.length === 0) return report('Рабочего кода пока нет — мутационные тесты не выполнялись.');
+  const productTests = tests.filter((file) => !file.startsWith('tools/'));
   run('mutator', [
     '--no-coverage', '--mutate-all', '--max-workers', '2',
-    '--test-command', 'npm --prefix tools test', ...product
+    '--test-command', ['node', '--test', ...productTests].join(' '), ...product
   ]);
 }
 
