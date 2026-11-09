@@ -85,6 +85,12 @@ test('Слишком сложная функция отклоняется', () =
   assert.match(result.stdout, /complexity/);
 });
 
+test('Файл длиннее 350 строк отклоняется, комментарии считаются', () => {
+  const result = fixture({ 'value.test.js': '// строка\n'.repeat(351) }, 'check');
+  assert.notEqual(result.status, 0);
+  assert.match(result.stdout, /max-lines/);
+});
+
 test('Повторы сверх порога отклоняются', () => {
   const body = Array.from({ length: 12 }, (_, n) => `console.log("message ${n}");`).join('\n');
   const result = fixture({ 'one.test.js': body, 'two.test.js': body }, 'check');
