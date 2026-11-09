@@ -61,6 +61,13 @@ test('tools/call без initialize: ответ текстом', async () => {
   assert.equal(replies[0].result.content[0].type, 'text');
 });
 
+test('tools/call без arguments: просьба указать действие, сервер работает дальше', async () => {
+  const replies = await run([message('tools/call', { name: 'spec_forge' }, 1)]);
+  assert.deepEqual(replies, [
+    { jsonrpc: '2.0', id: 1, result: { content: [{ type: 'text', text: texts.noAction }], isError: true } }
+  ]);
+});
+
 test('уведомление остаётся без ответа', async () => {
   assert.deepEqual(await run([message('notifications/initialized')]), []);
 });
