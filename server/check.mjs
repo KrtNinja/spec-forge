@@ -1,7 +1,8 @@
 // @ts-check
 // Действие check: проверка документов задачи. Пока — заголовки `_work/context.md`.
+import { existsSync } from 'node:fs';
 import { contextHeadings, texts } from './contract.mjs';
-import { headings, isFile, isTask, readText, taskFile, taskName } from './docs.mjs';
+import { headings, isTask, readText, taskFile, taskName } from './docs.mjs';
 
 /** @param {Record<string, unknown>} args @returns {import('./status.mjs').Answer} */
 export function check(args) {
@@ -18,7 +19,7 @@ export function check(args) {
  * @param {string} file
  */
 function contextErrors(file) {
-  if (!isFile(file)) return [];
+  if (!existsSync(file)) return [];
   const found = headings(readText(file));
   return contextHeadings.flatMap((heading) => {
     const count = found.filter((item) => item === heading).length;

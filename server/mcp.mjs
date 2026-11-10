@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { check } from './check.mjs';
 import { texts, tool } from './contract.mjs';
+import { Unreadable } from './docs.mjs';
 import { status } from './status.mjs';
 
 const manifest = JSON.parse(readFileSync(new URL('../gigacode-extension.json', import.meta.url), 'utf8'));
@@ -51,8 +52,14 @@ function callTool(params) {
   const args = object(params.arguments);
   const action = String(args.action);
   if (!tool.inputSchema.properties.action.enum.includes(action)) return answer(texts.noAction, true);
-  const result = actions[/** @type {keyof typeof actions} */ (action)](args);
-  return typeof result === 'string' ? answer(result, false) : answer(result.error, true);
+  try {
+    const result = actions[/** @type {keyof typeof actions} */ (action)](args);
+    return typeof result === 'string' ? answer(result, false) : answer(result.error, true);
+  } catch (error) {
+    // Нечитаемый документ — ответ с ошибкой; прочие исключения — ошибки самого сервера.
+    if (error instanceof Unreadable) return answer(error.message, true);
+    throw error;
+  }
 }
 
 /** @param {Record<string, unknown>} request */

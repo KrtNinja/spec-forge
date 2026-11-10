@@ -2,8 +2,17 @@
 // Документы задач в docs/: какие папки считаются задачами, разделы Markdown и источники в них.
 // Пути — от корня проекта: сервер запускается в нём.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { texts } from './contract.mjs';
 
 /** @typedef {import('./contract.mjs').Source} Source */
+
+/** Документ задачи есть, но не читается: вызов не удаётся, сервер продолжает работу. */
+export class Unreadable extends Error {
+  /** @param {string} path */
+  constructor(path) {
+    super(texts.unreadable(path));
+  }
+}
 
 /** Имя папки задачи: латинские буквы, цифры, `-`, `_` и `.`, первый знак — буква или цифра. */
 export const validName = /^[A-Za-z0-9][\w.-]*$/;
@@ -17,19 +26,26 @@ export const taskFile = (task, file) => `docs/${task}/${file}`;
 /** Поле `task` вызова; не строка — как пустое. @param {Record<string, unknown>} args */
 export const taskName = (args) => (typeof args.task === 'string' ? args.task : '');
 
-/** Есть и это файл, а не папка. @param {string} path */
-export function isFile(path) {
-  return existsSync(path) && statSync(path).isFile();
-}
-
-/** Текст файла; нет файла — пусто. @param {string} path */
+/**
+ * Текст документа; нет документа — пусто. Есть, но не читается (папка, нет прав) — Unreadable.
+ * @param {string} path
+ */
 export function readText(path) {
-  return isFile(path) ? readFileSync(path, 'utf8') : '';
+  if (!existsSync(path)) return '';
+  try {
+    return readFileSync(path, 'utf8');
+  } catch {
+    throw new Unreadable(path);
+  }
 }
 
-/** Задача — папка `docs/<имя>` с `brainstorming.md`, имя подходит под validName. @param {string} name */
+/**
+ * Задача — папка `docs/<имя>` с `brainstorming.md`, имя подходит под validName.
+ * Не читается ли `brainstorming.md`, выясняется при чтении.
+ * @param {string} name
+ */
 export function isTask(name) {
-  return validName.test(name) && isFile(taskFile(name, 'brainstorming.md'));
+  return validName.test(name) && existsSync(taskFile(name, 'brainstorming.md'));
 }
 
 /** Имена всех задач по алфавиту; нет `docs/` — задач нет. */
