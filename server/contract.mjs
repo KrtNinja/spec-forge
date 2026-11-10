@@ -63,6 +63,8 @@ export const texts = {
   noTask: 'Укажите задачу: имя папки в `docs/`.',
   /** @param {string} task */
   unknownTask: (task) => `Задачи ${code(task)} нет: не найден ${code(`docs/${task}/brainstorming.md`)}.`,
+  /** Документ задачи есть, но не читается; сервер при этом продолжает работу. @param {string} file */
+  unreadable: (file) => `Не удалось прочитать ${code(file)}: это не файл или нет прав на чтение.`,
   /** @param {string} name */
   unknownTool: (name) => `Неизвестный инструмент \`${name}\`.`,
   /** @param {string} method */
