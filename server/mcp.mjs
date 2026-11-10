@@ -1,10 +1,20 @@
 // @ts-check
 import { readFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
+import { check } from './check.mjs';
 import { texts, tool } from './contract.mjs';
+import { status } from './status.mjs';
 
 const manifest = JSON.parse(readFileSync(new URL('../gigacode-extension.json', import.meta.url), 'utf8'));
 const versions = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
+
+/** Действия spec_forge. Ответ — текст или `error`: вызов не удался (isError). */
+const actions = {
+  status,
+  check,
+  /** @returns {import('./status.mjs').Answer} */
+  link: () => ({ error: texts.notImplemented('link') })
+};
 
 /** @param {unknown} value @returns {Record<string, unknown>} */
 function object(value) {
@@ -30,14 +40,19 @@ function initialize(params) {
   };
 }
 
+/** @param {string} text @param {boolean} isError */
+function answer(text, isError) {
+  return { result: { content: [{ type: 'text', text }], isError } };
+}
+
 /** @param {Record<string, unknown>} params */
 function callTool(params) {
   if (params.name !== tool.name) return failure(-32602, texts.unknownTool(String(params.name)));
-  const action = object(params.arguments).action;
-  const text = typeof action === 'string' && tool.inputSchema.properties.action.enum.includes(action)
-    ? texts.notImplemented(action)
-    : texts.noAction;
-  return { result: { content: [{ type: 'text', text }], isError: true } };
+  const args = object(params.arguments);
+  const action = String(args.action);
+  if (!tool.inputSchema.properties.action.enum.includes(action)) return answer(texts.noAction, true);
+  const result = actions[/** @type {keyof typeof actions} */ (action)](args);
+  return typeof result === 'string' ? answer(result, false) : answer(result.error, true);
 }
 
 /** @param {Record<string, unknown>} request */
