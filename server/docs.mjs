@@ -53,14 +53,16 @@ export function tasks() {
 /** Ограда блока кода: ``` или ~~~ не короче трёх знаков, отступ до трёх пробелов. */
 const fenceOpen = /^ {0,3}(`{3,}|~{3,})/;
 
+/** Раздел документа: заголовок целиком и строки под ним. @typedef {{ heading: string, lines: string[] }} Block */
+
 /**
  * Разделы документа по порядку: заголовок любого уровня и строки до следующего заголовка.
  * Строки до первого заголовка ни к одному разделу не относятся. Блоки кода в оградах пропускаются
- * целиком: заголовки и источники в примерах не настоящие.
+ * целиком: заголовки, источники и номера записей в примерах не настоящие.
  * @param {string} text
  */
-function blocks(text) {
-  /** @type {{ heading: string, lines: string[] }[]} */
+export function blocks(text) {
+  /** @type {Block[]} */
   const result = [];
   /** @type {string[]} */
   let lines = [];
@@ -87,6 +89,22 @@ function blocks(text) {
 /** Заголовки документа по порядку, например `## Факты`. @param {string} text */
 export function headings(text) {
   return blocks(text).map((block) => block.heading);
+}
+
+/** Уровень заголовка — число знаков `#` в начале. @param {string} heading */
+export const level = (heading) => heading.length - heading.replace(/^#+/, '').length;
+
+/**
+ * Раздел с подразделами: блоки от заголовка до следующего заголовка первого или второго уровня.
+ * Заголовок повторяется — блоки всех его разделов.
+ * @param {Block[]} list @param {string} heading заголовок второго уровня, например `## Решения`
+ */
+export function part(list, heading) {
+  let current = '';
+  return list.filter((block) => {
+    if (level(block.heading) < 3) current = block.heading;
+    return current === heading;
+  });
 }
 
 /**

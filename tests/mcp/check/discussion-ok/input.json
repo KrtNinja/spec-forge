@@ -1,0 +1,5 @@
+{
+  "when": "brainstorming.md и questions.md по образцу: заменённое решение, ответ на вопрос решением, вопрос «не входит» упомянут в «Не входит в задачу», у открытого пустой ответ",
+  "refs": ["FR-07", "FR-08", "FR-11", "core/design.md: Документы задачи", "core/design.md: Проверки"],
+  "call": { "action": "check", "task": "order-search" }
+}
