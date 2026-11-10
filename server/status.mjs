@@ -1,14 +1,17 @@
 // @ts-check
-// Действие status: выбор задачи, имя новой папки, источники и задание на их изучение.
+// Действие status: выбор задачи, имя новой папки, источники и задание на их изучение,
+// блокирующие вопросы и переход к требованиям.
 // Пока только для sf-grill и задач без spec.md; остальные переходы — в следующих блоках.
 import { existsSync } from 'node:fs';
-import { failedHeading, studiedHeading, texts, tool } from './contract.mjs';
+import { failedHeading, sourcesHeading, studiedHeading, texts, tool } from './contract.mjs';
 import {
-  isTask, listedSources, mentionedKeys, readText, section, sourceKey, taskFile, tasks, validName
+  blocks, isTask, listedSources, mentionedKeys, readText, section, sourceKey, taskFile, tasks, validName
 } from './docs.mjs';
+import { isBlocking, questionBlocks } from './records.mjs';
 
 /** @typedef {import('./contract.mjs').Source} Source */
 /** Ответ: текст или `error` — вызов не удался. @typedef {string | { error: string }} Answer */
+/** Следующий шаг: текст и строка Tip, если открыт переход. @typedef {{ text: string, tip: string[] }} Step */
 
 const commands = tool.inputSchema.properties.command.enum;
 
@@ -37,27 +40,39 @@ function named(name) {
 }
 
 /**
- * Задача на обсуждении: следующий шаг по её источникам, затем строки tail.
+ * Задача на обсуждении: следующий шаг, затем строки tail. Строка Tip — последней, только с переходом.
  * @param {string} task @param {string[]} tail
  */
 function discussion(task, tail) {
-  const sources = listedSources(section(readText(taskFile(task, 'brainstorming.md')), '## Источники'));
+  const sources = listedSources(section(readText(taskFile(task, 'brainstorming.md')), sourcesHeading));
   const context = readText(taskFile(task, '_work/context.md'));
-  return [texts.discussion(task), next(task, sources, context), ...tail].join('\n\n');
+  const step = next(task, sources, context);
+  return [texts.discussion(task), step.text, ...tail, ...step.tip].join('\n\n');
 }
 
 /**
  * Изучен источник, упомянутый в «Изучено». Среди неизученных есть недоступные — только их список;
- * иначе задание на неизученные; всё изучено — продолжить обсуждение.
+ * иначе задание на неизученные; всё изучено — вопросы.
  * @param {string} task @param {Source[]} sources @param {string} context текст `_work/context.md`
+ * @returns {Step}
  */
 function next(task, sources, context) {
   const studied = mentionedKeys(section(context, studiedHeading));
   const failed = mentionedKeys(section(context, failedHeading));
   const pending = sources.filter((source) => !studied.includes(sourceKey(source)));
   const unavailable = pending.flatMap((source) => problem(source, failed));
-  if (unavailable.length === 0) return pending.length === 0 ? texts.continueDiscussion : texts.studyTask(task, pending);
-  return texts.unavailableSources(unavailable);
+  if (unavailable.length !== 0) return { text: texts.unavailableSources(unavailable), tip: [] };
+  return pending.length === 0 ? questions(task) : { text: texts.studyTask(task, pending), tip: [] };
+}
+
+/**
+ * Блокирующие вопросы в порядке записей; нет их — переход к требованиям.
+ * @param {string} task @returns {Step}
+ */
+function questions(task) {
+  const blocking = questionBlocks(blocks(readText(taskFile(task, 'questions.md')))).filter(isBlocking);
+  if (blocking.length === 0) return { text: texts.readyForSpec(task), tip: [texts.tip(`/sf-spec ${task}`)] };
+  return { text: texts.blockingQuestions(blocking.map((block) => block.heading.replace(/^#+ /, ''))), tip: [] };
 }
 
 /**
