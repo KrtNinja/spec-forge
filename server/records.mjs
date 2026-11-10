@@ -38,19 +38,24 @@ export function numbersIn(lines) {
   return [...new Set(lines.join('\n').match(mention))];
 }
 
+/** Значения поля «- Поле: значение» по порядку, без пробелов по краям. @param {string[]} lines @param {string} name */
+export function fieldValues(lines, name) {
+  const prefix = `- ${name}:`;
+  return lines.filter((line) => line.startsWith(prefix)).map((line) => line.slice(prefix.length).trim());
+}
+
 /**
- * Значение поля «- Поле: значение» без пробелов по краям; поля нет — пусто. Поле повторяется — первое.
+ * Значение поля; поля нет или оно повторяется — пусто: у повторённого поля значения нет.
  * @param {string[]} lines @param {string} name
  */
 export function field(lines, name) {
-  const prefix = `- ${name}:`;
-  const line = lines.find((item) => item.startsWith(prefix));
-  return line === undefined ? '' : line.slice(prefix.length).trim();
+  const values = fieldValues(lines, name);
+  return values.length === 1 ? values[0] : '';
 }
 
 /**
  * Вопрос блокирует подготовку требований: не решён, не «не входит» и не помечен «Блокирует: нет».
- * Нет поля или значение с ошибкой — блокирует: ошибку покажет check, а переход не откроется раньше времени.
+ * Нет поля, значение с ошибкой или поле повторяется — блокирует: ошибку покажет check, а переход не откроется раньше времени.
  * @param {Block} block
  */
 export function isBlocking(block) {

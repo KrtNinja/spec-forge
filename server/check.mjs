@@ -8,7 +8,7 @@ import {
   sourcesHeading, texts, tool
 } from './contract.mjs';
 import { blocks, headings, isTask, listedSources, part, readText, taskFile } from './docs.mjs';
-import { decisionBlocks, field, nextNumber, numbersIn, questionBlocks, recordNumber } from './records.mjs';
+import { decisionBlocks, field, fieldValues, nextNumber, numbersIn, questionBlocks, recordNumber } from './records.mjs';
 
 /** @typedef {import('./docs.mjs').Block} Block */
 /** @typedef {import('./records.mjs').Kind} Kind */
@@ -126,25 +126,32 @@ function recordErrors(file, block, kind, scope) {
 
 /** @param {string} file @param {string} number @param {Block} block */
 function decisionErrors(file, number, block) {
-  return field(block.lines, decisionField) === '' ? [texts.emptyField(file, number, decisionField)] : [];
+  return fieldErrors(file, number, block.lines, decisionField, [decisionField]);
 }
 
 /**
- * Поля в порядке образца, затем связь с brainstorming.md.
+ * Поля в порядке образца, затем связь с brainstorming.md. Статус повторяется — как недопустимый.
  * @param {string} file @param {string} number @param {Block} block @param {Scope} scope
  */
 function questionErrors(file, number, block, scope) {
   const state = field(block.lines, status);
   const needed = required.get(state) || [status];
   return [
-    ...Object.values(questionFields).flatMap((name) => {
-      const value = field(block.lines, name);
-      if (value === '') return needed.includes(name) ? [texts.emptyField(file, number, name)] : [];
-      const options = allowed.get(name) || [value];
-      return options.includes(value) ? [] : [texts.badValue(file, number, name, value, options)];
-    }),
+    ...Object.values(questionFields).flatMap((name) => fieldErrors(file, number, block.lines, name, needed)),
     ...linkErrors(file, number, state, scope)
   ];
+}
+
+/**
+ * Поле повторяется — только эта ошибка; пустое — ошибка, если оно обязательно; иначе допустимое ли значение.
+ * @param {string} file @param {string} number @param {string[]} lines @param {string} name @param {string[]} needed обязательные поля
+ */
+function fieldErrors(file, number, lines, name, needed) {
+  if (fieldValues(lines, name).length > 1) return [texts.repeatedField(file, number, name)];
+  const value = field(lines, name);
+  if (value === '') return needed.includes(name) ? [texts.emptyField(file, number, name)] : [];
+  const options = allowed.get(name) || [value];
+  return options.includes(value) ? [] : [texts.badValue(file, number, name, value, options)];
 }
 
 /**
