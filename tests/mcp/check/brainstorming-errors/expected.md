@@ -15,5 +15,6 @@
 - `docs/order-search/brainstorming.md`, `D-03` — не заполнено «Решение»
 - `docs/order-search/brainstorming.md`, `D-03` — нет записи `D-09`
 - `docs/order-search/brainstorming.md` — заголовок `### D-004`: нужен только номер записи, например `### D-01`
+- `docs/order-search/brainstorming.md`, `D-05` — «Решение» повторяется
 
-Следующие номера: `D-04`, `Q-01`.
+Следующие номера: `D-06`, `Q-01`.

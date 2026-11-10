@@ -31,7 +31,8 @@ export const outOfScopeHeading = '## Не входит в задачу';
 export const brainstormingHeadings = ['## Запрос', sourcesHeading, decisionsHeading, outOfScopeHeading];
 
 // Записи. Заголовок записи — только номер, например `### D-07`: две цифры и больше, без лишних нулей впереди.
-// Решения D — под «Решениями» brainstorming.md, вопросы Q — в questions.md. Поле записи — пункт «- Поле: значение».
+// Решения D — под «Решениями» brainstorming.md, вопросы Q — в questions.md. Поле записи — пункт «- Поле: значение»,
+// каждое поле из договора — не больше одного раза.
 
 /** Поле решения D, которое должно быть заполнено: решение пользователя. */
 export const decisionField = 'Решение';
@@ -181,6 +182,8 @@ export const texts = {
   repeatedNumber: (file, number) => `${code(file)} — номер ${code(number)} повторяется`,
   /** Поля нет или оно пустое. @param {string} file @param {string} number @param {string} field */
   emptyField: (file, number, field) => `${code(file)}, ${code(number)} — не заполнено «${field}»`,
+  /** Поле из договора записано больше одного раза. @param {string} file @param {string} number @param {string} field */
+  repeatedField: (file, number, field) => `${code(file)}, ${code(number)} — «${field}» повторяется`,
   /** @param {string} file @param {string} number @param {string} field @param {string} value @param {string[]} allowed */
   badValue: (file, number, field, value, allowed) => `${code(file)}, ${code(number)} — «${field}»: ${code(value)} не подходит, `
     + `допустимо ${allowed.map(code).join(', ')}`,
