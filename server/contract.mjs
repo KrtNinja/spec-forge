@@ -14,8 +14,12 @@ const list = (items) => items.map((item) => `- ${item}`).join('\n');
 /** Путь — кодом, ссылка — как есть. @param {Source} item */
 const source = (item) => ('path' in item ? code(item.path) : item.link);
 
-/** Разделы _work/context.md: заголовки второго уровня, каждый ровно один раз. */
-export const contextSections = ['Факты', 'Противоречия', 'Не найдено'];
+/** Подразделы «Источников» в _work/context.md: источник открылся при изучении или нет. */
+export const studiedHeading = '### Изучено';
+export const failedHeading = '### Не изучено';
+
+/** Заголовки _work/context.md в порядке заготовки; каждый ровно один раз. */
+export const contextHeadings = ['## Источники', studiedHeading, failedHeading, '## Факты', '## Противоречия', '## Не найдено'];
 
 export const tool = {
   name: 'spec_forge',
@@ -91,21 +95,26 @@ export const texts = {
   discussion: (task) => `Задача ${code(task)}: обсуждение, требований ещё нет.`,
   continueDiscussion: 'Дальше: продолжить обсуждение.',
   otherTask: 'Другая задача — `/sf-grill` с описанием идеи.',
-  /** @param {string[]} paths */
-  missingSources: (paths) => `**Не найдены источники**\n\n${list(paths.map(code))}\n\n`
+  /** Путь из «Источников», которого нет. @param {string} path */
+  missingSource: (path) => `${code(path)} — нет такого файла или папки`,
+  /** Источник из подраздела «Не изучено». @param {Source} item */
+  failedSource: (item) => `${source(item)} — не открылся при изучении`,
+  /** @param {string[]} lines */
+  unavailableSources: (lines) => `**Недоступные источники**\n\n${list(lines)}\n\n`
     + 'Дальше: решить — продолжить без них или сделать их доступными. '
-    + 'Если без них — записать решение `D-…` и убрать их из «Источников».',
+    + 'Без них — записать решение `D-…` и убрать их из «Источников» в `brainstorming.md`. '
+    + 'Доступ восстановлен — убрать их из «Не изучено» в `_work/context.md` и снова вызвать `status`.',
   /** @param {string} task @param {Source[]} sources */
   studyTask: (task, sources) => [
     '**Задание на изучение источников**',
     `Прочитай ${code(`docs/${task}/brainstorming.md`)} — запрос и решения задачи. Изучи источники:`,
     list(sources.map(source)),
-    `Что относится к задаче, запиши в ${code(`docs/${task}/_work/context.md`)}. `
-      + `Файла нет — создай с разделами ${contextSections.map((section) => code(`## ${section}`)).join(', ')}. `
-      + 'Файл есть — дописывай в его разделы, прежнее не удаляй.',
+    `Запиши результат в ${code(`docs/${task}/_work/context.md`)}. `
+      + `Файла нет — создай с заголовками ${contextHeadings.map(code).join(', ')} в этом порядке. `
+      + 'Файл есть — дописывай под его заголовки, прежнее не удаляй.',
     list([
-      'У каждого факта — источник.',
-      'Каждый источник из списка упомяни в «Фактах» или в «Не найдено» так, как он записан выше. Не открылся — тоже в «Не найдено».',
+      'Каждый источник запиши так, как он записан выше: открылся — в «Изучено», не открылся — в «Не изучено» с причиной.',
+      'Сведения, относящиеся к задаче, — в «Факты», у каждого факта — источник. Чего для задачи нет в источниках — в «Не найдено».',
       'Решений не принимай, другие файлы не меняй.',
       `В конце вызови \`spec_forge\` с действием \`check\` и задачей ${code(task)}, исправь ошибки.`
     ]),
@@ -117,8 +126,8 @@ export const texts = {
   noErrors: 'Ошибок нет.',
   /** Строки «где — что». @param {string[]} lines */
   errors: (lines) => `**Ошибки**\n\n${list(lines)}`,
-  /** @param {string} file @param {string} section */
-  missingSection: (file, section) => `${code(file)} — нет раздела ${code(`## ${section}`)}`,
-  /** @param {string} file @param {string} section */
-  repeatedSection: (file, section) => `${code(file)} — раздел ${code(`## ${section}`)} повторяется`
+  /** @param {string} file @param {string} heading */
+  missingHeading: (file, heading) => `${code(file)} — нет заголовка ${code(heading)}`,
+  /** @param {string} file @param {string} heading */
+  repeatedHeading: (file, heading) => `${code(file)} — заголовок ${code(heading)} повторяется`
 };

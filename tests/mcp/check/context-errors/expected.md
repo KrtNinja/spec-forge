@@ -1,5 +1,5 @@
 **Ошибки**
 
-- `docs/order-search/_work/context.md` — раздел `## Факты` повторяется
-- `docs/order-search/_work/context.md` — нет раздела `## Противоречия`
-- `docs/order-search/_work/context.md` — нет раздела `## Не найдено`
+- `docs/order-search/_work/context.md` — нет заголовка `### Не изучено`
+- `docs/order-search/_work/context.md` — заголовок `## Факты` повторяется
+- `docs/order-search/_work/context.md` — нет заголовка `## Не найдено`
