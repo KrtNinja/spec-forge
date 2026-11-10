@@ -1,5 +1,5 @@
 // @ts-check
-// Состав расширения: манифест, правила, код сервера.
+// Состав расширения: манифест, правила, скиллы, код сервера.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
@@ -44,7 +44,17 @@ test('правила подключаются только для папок doc
   assert.ok(header[1].split('\n').includes('paths: ["**/docs/**"]'), 'нужна строка paths: ["**/docs/**"]');
 });
 
-test(`правила не длиннее ${rulesLimit} букв и цифр`, () => {
-  const count = (read('rules/spec-forge.md').match(/[\p{L}\p{N}]/gu) ?? []).length;
-  assert.ok(count <= rulesLimit, `букв и цифр: ${count}`);
+/** Правила и тела скиллов: всё, что попадает в контекст модели. */
+function contextFiles() {
+  const skills = readdirSync(join(root, 'skills'), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => `skills/${entry.name}/SKILL.md`);
+  return ['rules/spec-forge.md', ...skills];
+}
+
+test(`правила и каждый SKILL.md не длиннее ${rulesLimit} букв и цифр`, () => {
+  for (const file of contextFiles()) {
+    const count = (read(file).match(/[\p{L}\p{N}]/gu) ?? []).length;
+    assert.ok(count <= rulesLimit, `${file}: букв и цифр ${count}`);
+  }
 });

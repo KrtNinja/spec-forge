@@ -1,0 +1,5 @@
+{
+  "when": "все источники изучены, questions.md не читается — в случае это папка: ошибка вызова, сервер не падает",
+  "refs": ["FR-28", "core/design.md: Ответ инструмента"],
+  "call": { "action": "status", "command": "sf-grill", "task": "order-search" }
+}

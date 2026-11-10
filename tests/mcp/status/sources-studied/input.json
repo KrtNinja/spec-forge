@@ -1,5 +1,5 @@
 {
-  "when": "задача названа, все источники записаны в «Изучено»",
-  "refs": ["FR-02", "sf-grill/design.md: Изучение источников"],
+  "when": "задача названа, все источники записаны в «Изучено», questions.md нет: переход к требованиям",
+  "refs": ["FR-02", "FR-12", "FR-13", "sf-grill/design.md: Изучение источников"],
   "call": { "action": "status", "command": "sf-grill", "task": "order-search" }
 }

@@ -11,6 +11,9 @@ const code = (value) => `\`${value}\``;
 /** @param {string[]} items */
 const list = (items) => items.map((item) => `- ${item}`).join('\n');
 
+/** @param {string[]} numbers */
+const next = (numbers) => `Следующие номера: ${numbers.map(code).join(', ')}.`;
+
 /** Путь — кодом, ссылка — как есть. @param {Source} item */
 const source = (item) => ('path' in item ? code(item.path) : item.link);
 
@@ -20,6 +23,27 @@ export const failedHeading = '### Не изучено';
 
 /** Заголовки _work/context.md в порядке заготовки; каждый ровно один раз. */
 export const contextHeadings = ['## Источники', studiedHeading, failedHeading, '## Факты', '## Противоречия', '## Не найдено'];
+
+/** Разделы brainstorming.md в порядке образца; каждый ровно один раз. */
+export const sourcesHeading = '## Источники';
+export const decisionsHeading = '## Решения';
+export const outOfScopeHeading = '## Не входит в задачу';
+export const brainstormingHeadings = ['## Запрос', sourcesHeading, decisionsHeading, outOfScopeHeading];
+
+// Записи. Заголовок записи — только номер, например `### D-07`: две цифры и больше, без лишних нулей впереди.
+// Решения D — под «Решениями» brainstorming.md, вопросы Q — в questions.md. Поле записи — пункт «- Поле: значение».
+
+/** Поле решения D, которое должно быть заполнено: решение пользователя. */
+export const decisionField = 'Решение';
+
+/** Поля вопроса Q в порядке образца. */
+export const questionFields = { stage: 'Этап', blocking: 'Блокирует', help: 'Помощь', status: 'Статус', answer: 'Ответ' };
+
+/** Допустимые значения «Блокирует». Значения «Этап» — команды из схемы инструмента. */
+export const blockingValues = ['да', 'нет'];
+
+/** Допустимые значения «Статус». */
+export const questionStatuses = { open: 'открыт', solved: 'решён', outOfScope: 'не входит' };
 
 export const tool = {
   name: 'spec_forge',
@@ -95,8 +119,20 @@ export const texts = {
 
   /** @param {string} task */
   discussion: (task) => `Задача ${code(task)}: обсуждение, требований ещё нет.`,
-  continueDiscussion: 'Дальше: продолжить обсуждение.',
+  /** Открытые вопросы, кроме «Блокирует: нет», в порядке записей. @param {string[]} numbers */
+  blockingQuestions: (numbers) => `Блокируют подготовку требований: ${numbers.map(code).join(', ')}.\n\n`
+    + 'Дальше: продолжить обсуждение. Требования — после ответа на эти вопросы.',
+  /** Блокирующих вопросов нет: переход к требованиям доступен. @param {string} task */
+  readyForSpec: (task) => 'Дальше: продолжить обсуждение. Когда вопросов не останется — предложить подготовить требования.\n\n'
+    + `Подготовить требования в новой сессии (рекомендуется): \`/clear\` или перезапуск окна, затем ${code(`/sf-spec ${task}`)}. `
+    + 'Или продолжить в этой сессии.',
   otherTask: 'Другая задача — `/sf-grill` с описанием идеи.',
+  /**
+   * Последняя строка ответа, без оформления: по ней GigaCode подставит команду в строку ввода.
+   * Только вместе с переходом; при блокирующих вопросах и выборе задачи её нет.
+   * @param {string} command
+   */
+  tip: (command) => `Tip: Введите ${command} чтобы продолжить`,
   /** Путь из «Источников», которого нет. @param {string} path */
   missingSource: (path) => `${code(path)} — нет такого файла или папки`,
   /** Источник из подраздела «Не изучено». @param {Source} item */
@@ -123,13 +159,38 @@ export const texts = {
     'Дальше: поручить задание отдельному агенту, добавив, что нужно выяснить. Вопросы, не зависящие от источников, задавать сразу.'
   ].join('\n\n'),
 
-  // check.
+  // check. Ошибки — по файлам: brainstorming.md, questions.md, _work/context.md. Внутри файла сначала
+  // разделы (нет, повторяется) в порядке образца, затем сверху вниз; внутри записи — заголовок, поля
+  // в порядке образца, связь с другим файлом, ссылки.
 
-  noErrors: 'Ошибок нет.',
-  /** Строки «где — что». @param {string[]} lines */
-  errors: (lines) => `**Ошибки**\n\n${list(lines)}`,
+  /** Следующие свободные номера: D, затем Q. @param {string[]} numbers */
+  noErrors: (numbers) => `Ошибок нет. ${next(numbers)}`,
+  /** Строки «где — что» и следующие номера. @param {string[]} lines @param {string[]} numbers */
+  errors: (lines, numbers) => `**Ошибки**\n\n${list(lines)}\n\n${next(numbers)}`,
   /** @param {string} file @param {string} heading */
   missingHeading: (file, heading) => `${code(file)} — нет заголовка ${code(heading)}`,
   /** @param {string} file @param {string} heading */
-  repeatedHeading: (file, heading) => `${code(file)} — заголовок ${code(heading)} повторяется`
+  repeatedHeading: (file, heading) => `${code(file)} — заголовок ${code(heading)} повторяется`,
+  /** Непустая строка «Источников» — не пункт «- », начинающийся с источника. @param {string} file @param {string} line без отступов по краям */
+  badSourceLine: (file, line) => `${code(file)} — в «Источниках» строка «${line}» не начинается с пути в обратных апострофах или со ссылки`,
+  /** @param {string} file @param {string} heading */
+  sourceSubheading: (file, heading) => `${code(file)} — в «Источниках» подзаголовок ${code(heading)}: пункты под ним не считаются источниками`,
+  /** Заголовок там, где должны быть только записи. @param {string} file @param {string} heading @param {'D' | 'Q'} kind */
+  badRecordHeading: (file, heading, kind) => `${code(file)} — заголовок ${code(heading)}: нужен только номер записи, например ${code(`### ${kind}-01`)}`,
+  /** @param {string} file @param {string} number */
+  repeatedNumber: (file, number) => `${code(file)} — номер ${code(number)} повторяется`,
+  /** Поля нет или оно пустое. @param {string} file @param {string} number @param {string} field */
+  emptyField: (file, number, field) => `${code(file)}, ${code(number)} — не заполнено «${field}»`,
+  /** @param {string} file @param {string} number @param {string} field @param {string} value @param {string[]} allowed */
+  badValue: (file, number, field, value, allowed) => `${code(file)}, ${code(number)} — «${field}»: ${code(value)} не подходит, `
+    + `допустимо ${allowed.map(code).join(', ')}`,
+  /** Решённый вопрос, на который не ссылается ни одно решение. @param {string} file @param {string} number */
+  noDecision: (file, number) => `${code(file)}, ${code(number)} — вопрос решён, но ни одно решение \`D-…\` на него не ссылается`,
+  /** Вопрос «не входит» не упомянут в «Не входит в задачу». @param {string} file @param {string} number */
+  notOutOfScope: (file, number) => `${code(file)}, ${code(number)} — вопрос не входит в задачу, `
+    + 'но не упомянут в «Не входит в задачу» `brainstorming.md`',
+  /** Номер D или Q, которого нет, в записи. @param {string} file @param {string} record @param {string} number */
+  deadReferenceInRecord: (file, record, number) => `${code(file)}, ${code(record)} — нет записи ${code(number)}`,
+  /** Номер D или Q, которого нет, в разделе вне записей. @param {string} file @param {string} heading заголовок раздела @param {string} number */
+  deadReferenceInSection: (file, heading, number) => `${code(file)}, «${heading.replace(/^#+ /, '')}» — нет записи ${code(number)}`
 };
