@@ -1,0 +1,5 @@
+{
+  "when": "/sf-grill без задачи, незаконченное обсуждение одно, источников нет",
+  "refs": ["FR-13", "FR-23", "sf-grill/design.md: Новая задача"],
+  "call": { "action": "status", "command": "sf-grill" }
+}

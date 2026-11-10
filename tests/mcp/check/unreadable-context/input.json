@@ -1,0 +1,5 @@
+{
+  "when": "_work/context.md не читается при проверке — в случае это папка: ошибка вызова, сервер не падает",
+  "refs": ["FR-25", "FR-28", "core/design.md: Ответ инструмента"],
+  "call": { "action": "check", "task": "order-search" }
+}

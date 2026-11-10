@@ -1,0 +1,5 @@
+{
+  "when": "имя задачи `..` уводит из docs/ туда, где лежит brainstorming.md",
+  "refs": ["FR-23", "sf-grill/design.md: Новая задача"],
+  "call": { "action": "status", "command": "sf-grill", "task": ".." }
+}

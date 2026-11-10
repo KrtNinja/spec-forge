@@ -1,0 +1,5 @@
+{
+  "when": "/sf-grill без задачи, незаконченных обсуждений несколько, есть и задача со spec.md",
+  "refs": ["FR-23"],
+  "call": { "action": "status", "command": "sf-grill" }
+}

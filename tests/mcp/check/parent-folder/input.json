@@ -1,0 +1,5 @@
+{
+  "when": "check вызван с именем задачи `..`, которое уводит из docs/ туда, где лежит brainstorming.md",
+  "refs": ["FR-25", "FR-28"],
+  "call": { "action": "check", "task": ".." }
+}

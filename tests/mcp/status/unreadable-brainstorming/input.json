@@ -1,0 +1,5 @@
+{
+  "when": "brainstorming.md задачи не читается — в случае это папка, так же ведёт себя файл без прав на чтение: ошибка вызова, сервер не падает",
+  "refs": ["FR-28", "core/design.md: Ответ инструмента"],
+  "call": { "action": "status", "command": "sf-grill", "task": "order-search" }
+}

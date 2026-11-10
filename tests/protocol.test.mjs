@@ -85,6 +85,20 @@ test('неизвестный инструмент: ошибка -32602', async (
   assert.deepEqual(await run([call]), failure(-32602, texts.unknownTool('other')));
 });
 
+test('метод и имя инструмента не строки: ошибки с записью JSON, сервер продолжает работу', async () => {
+  const odd = { toString: null };
+  const replies = await run([
+    JSON.stringify({ jsonrpc: '2.0', id: 1, method: odd }),
+    message('tools/call', { name: odd, arguments: {} }, 2),
+    message('ping', {}, 3)
+  ]);
+  assert.deepEqual(replies, [
+    ...failure(-32601, texts.unknownMethod('{"toString":null}')),
+    ...failure(-32602, texts.unknownTool('{"toString":null}'), 2),
+    { jsonrpc: '2.0', id: 3, result: {} }
+  ]);
+});
+
 test('строка не JSON: ошибка -32700 без номера запроса', async () => {
   assert.deepEqual(await run(['не json']), failure(-32700, texts.badJson, null));
 });
