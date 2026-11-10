@@ -52,8 +52,6 @@ export function tasks() {
 
 /** Ограда блока кода: ``` или ~~~ не короче трёх знаков, отступ до трёх пробелов. */
 const fenceOpen = /^ {0,3}(`{3,}|~{3,})/;
-/** Закрывающая ограда: в строке только знаки ограды. */
-const fenceClose = /^ {0,3}(`{3,}|~{3,})\s*$/;
 
 /**
  * Разделы документа по порядку: заголовок любого уровня и строки до следующего заголовка.
@@ -66,14 +64,16 @@ function blocks(text) {
   const result = [];
   /** @type {string[]} */
   let lines = [];
-  // Открывающая ограда текущего блока кода; пусто — вне блока.
-  let fence = '';
+  // Закрывающая строка открытого блока кода; нет — вне блока.
+  /** @type {RegExp | undefined} */
+  let closing;
   for (const line of text.split(/\r?\n/)) {
-    if (fence) {
-      // Закрывает ограда из тех же знаков и не короче открывающей.
-      if (fenceClose.exec(line)?.[1].startsWith(fence)) fence = '';
+    if (closing) {
+      if (closing.test(line)) closing = undefined;
     } else if (fenceOpen.test(line)) {
-      fence = line.trim().replace(/[^`~].*$/, '');
+      // Закрывает строка только из знаков ограды — тех же и не меньше, отступ до трёх пробелов.
+      const fence = line.trim().replace(/[^`~].*$/, '');
+      closing = new RegExp(`^ {0,3}${fence}[${fence}]*\\s*$`);
     } else if (/^#{1,6} /.test(line)) {
       lines = [];
       result.push({ heading: line.trimEnd(), lines });
