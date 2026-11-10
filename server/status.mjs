@@ -4,7 +4,7 @@
 import { existsSync } from 'node:fs';
 import { failedHeading, studiedHeading, texts, tool } from './contract.mjs';
 import {
-  isTask, listedSources, mentionedKeys, readText, section, sourceKey, taskFile, taskName, tasks, validName
+  isTask, listedSources, mentionedKeys, readText, section, sourceKey, taskFile, tasks, validName
 } from './docs.mjs';
 
 /** @typedef {import('./contract.mjs').Source} Source */
@@ -12,12 +12,10 @@ import {
 
 const commands = tool.inputSchema.properties.command.enum;
 
-/** @param {Record<string, unknown>} args @returns {Answer} */
-export function status(args) {
-  const command = String(args.command);
+/** Поля вызова — строки; не строка или нет поля — пусто. @param {{ command: string, task: string }} call @returns {Answer} */
+export function status({ command, task }) {
   if (!commands.includes(command)) return { error: texts.noCommand };
   if (command !== 'sf-grill') return { error: texts.commandNotImplemented(command) };
-  const task = taskName(args);
   return task === '' ? choose() : named(task);
 }
 

@@ -23,9 +23,6 @@ const sourceToken = /`([^`\n]+)`|\[[^\]\n]*\]\(([^)\s]+)\)|(https?:\/\/[^\s)>\]]
 /** @param {string} task @param {string} file путь внутри папки задачи */
 export const taskFile = (task, file) => `docs/${task}/${file}`;
 
-/** Поле `task` вызова; не строка — как пустое. @param {Record<string, unknown>} args */
-export const taskName = (args) => (typeof args.task === 'string' ? args.task : '');
-
 /**
  * Текст документа; нет документа — пусто. Есть, но не читается (папка, нет прав) — Unreadable.
  * @param {string} path
@@ -53,9 +50,15 @@ export function tasks() {
   return existsSync('docs') && statSync('docs').isDirectory() ? readdirSync('docs').filter(isTask).sort() : [];
 }
 
+/** Ограда блока кода: ``` или ~~~ не короче трёх знаков, отступ до трёх пробелов. */
+const fenceOpen = /^ {0,3}(`{3,}|~{3,})/;
+/** Закрывающая ограда: в строке только знаки ограды. */
+const fenceClose = /^ {0,3}(`{3,}|~{3,})\s*$/;
+
 /**
  * Разделы документа по порядку: заголовок любого уровня и строки до следующего заголовка.
- * Строки до первого заголовка ни к одному разделу не относятся.
+ * Строки до первого заголовка ни к одному разделу не относятся. Блоки кода в оградах пропускаются
+ * целиком: заголовки и источники в примерах не настоящие.
  * @param {string} text
  */
 function blocks(text) {
@@ -63,8 +66,15 @@ function blocks(text) {
   const result = [];
   /** @type {string[]} */
   let lines = [];
+  // Открывающая ограда текущего блока кода; пусто — вне блока.
+  let fence = '';
   for (const line of text.split(/\r?\n/)) {
-    if (/^#{1,6} /.test(line)) {
+    if (fence) {
+      // Закрывает ограда из тех же знаков и не короче открывающей.
+      if (fenceClose.exec(line)?.[1].startsWith(fence)) fence = '';
+    } else if (fenceOpen.test(line)) {
+      fence = line.trim().replace(/[^`~].*$/, '');
+    } else if (/^#{1,6} /.test(line)) {
       lines = [];
       result.push({ heading: line.trimEnd(), lines });
     } else {

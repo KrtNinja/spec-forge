@@ -2,11 +2,10 @@
 // Действие check: проверка документов задачи. Пока — заголовки `_work/context.md`.
 import { existsSync } from 'node:fs';
 import { contextHeadings, texts } from './contract.mjs';
-import { headings, isTask, readText, taskFile, taskName } from './docs.mjs';
+import { headings, isTask, readText, taskFile } from './docs.mjs';
 
-/** @param {Record<string, unknown>} args @returns {import('./status.mjs').Answer} */
-export function check(args) {
-  const task = taskName(args);
+/** Поле вызова — строка; не строка или нет поля — пусто. @param {{ task: string }} call @returns {import('./status.mjs').Answer} */
+export function check({ task }) {
   if (task === '') return { error: texts.noTask };
   if (!isTask(task)) return { error: texts.unknownTask(task) };
   const errors = contextErrors(taskFile(task, '_work/context.md'));

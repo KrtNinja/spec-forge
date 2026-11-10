@@ -23,6 +23,15 @@ function object(value) {
   return /** @type {Record<string, unknown>} */ (value);
 }
 
+// Значения запроса — любой JSON. Объект нельзя преобразовывать в строку: его `toString` может быть
+// любым, и преобразование уронит сервер. Поэтому сначала тип.
+
+/** Строковое поле вызова; другого типа — пусто. @param {unknown} value */
+const field = (value) => (typeof value === 'string' ? value : '');
+
+/** Значение для текста ответа; не строка — в записи JSON. @param {unknown} value */
+const shown = (value) => (typeof value === 'string' ? value : String(JSON.stringify(value)));
+
 /** @param {number} code @param {string} message */
 function failure(code, message) {
   return { error: { code, message } };
@@ -48,12 +57,12 @@ function answer(text, isError) {
 
 /** @param {Record<string, unknown>} params */
 function callTool(params) {
-  if (params.name !== tool.name) return failure(-32602, texts.unknownTool(String(params.name)));
+  if (params.name !== tool.name) return failure(-32602, texts.unknownTool(shown(params.name)));
   const args = object(params.arguments);
-  const action = String(args.action);
-  if (!tool.inputSchema.properties.action.enum.includes(action)) return answer(texts.noAction, true);
+  const call = { action: field(args.action), command: field(args.command), task: field(args.task) };
+  if (!tool.inputSchema.properties.action.enum.includes(call.action)) return answer(texts.noAction, true);
   try {
-    const result = actions[/** @type {keyof typeof actions} */ (action)](args);
+    const result = actions[/** @type {keyof typeof actions} */ (call.action)](call);
     return typeof result === 'string' ? answer(result, false) : answer(result.error, true);
   } catch (error) {
     // Нечитаемый документ — ответ с ошибкой; прочие исключения — ошибки самого сервера.
@@ -70,7 +79,7 @@ function dispatch(request) {
     case 'ping': return { result: {} };
     case 'tools/list': return { result: { tools: [tool] } };
     case 'tools/call': return callTool(params);
-    default: return failure(-32601, texts.unknownMethod(String(request.method)));
+    default: return failure(-32601, texts.unknownMethod(shown(request.method)));
   }
 }
 
