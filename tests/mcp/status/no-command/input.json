@@ -1,0 +1,5 @@
+{
+  "when": "status вызван без команды",
+  "refs": ["FR-23"],
+  "call": { "action": "status" }
+}

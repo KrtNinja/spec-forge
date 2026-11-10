@@ -1,0 +1,5 @@
+{
+  "when": "/sf-grill без задачи, папки docs/ нет",
+  "refs": ["FR-23", "core/design.md: Вход в работу и выбор задачи"],
+  "call": { "action": "status", "command": "sf-grill" }
+}

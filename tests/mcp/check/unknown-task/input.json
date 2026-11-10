@@ -1,0 +1,5 @@
+{
+  "when": "check вызван для папки без brainstorming.md",
+  "refs": ["FR-25", "FR-28"],
+  "call": { "action": "check", "task": "guide" }
+}

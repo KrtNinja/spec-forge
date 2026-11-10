@@ -1,0 +1,5 @@
+{
+  "when": "у задачи ещё нет _work/context.md: изучение не прошло — это не ошибка",
+  "refs": ["FR-25", "sf-grill/design.md: Изучение источников"],
+  "call": { "action": "check", "task": "order-search" }
+}

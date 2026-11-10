@@ -1,0 +1,5 @@
+{
+  "when": "для новой задачи выбрано имя папки, которая уже есть в docs/, но задачей не является",
+  "refs": ["FR-23", "sf-grill/design.md: Новая задача"],
+  "call": { "action": "status", "command": "sf-grill", "task": "guide" }
+}

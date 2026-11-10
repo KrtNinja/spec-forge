@@ -1,0 +1,5 @@
+{
+  "when": "status вызван с командой, которой нет",
+  "refs": ["FR-23"],
+  "call": { "action": "status", "command": "sf-approve" }
+}

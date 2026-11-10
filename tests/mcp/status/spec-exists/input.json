@@ -1,0 +1,5 @@
+{
+  "when": "у названной задачи уже есть spec.md: переходы этих этапов ещё не реализованы",
+  "refs": ["core/design.md: Состояние и переходы"],
+  "call": { "action": "status", "command": "sf-grill", "task": "old-search" }
+}
