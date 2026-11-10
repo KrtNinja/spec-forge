@@ -3,6 +3,7 @@
 - `docs/order-search/brainstorming.md` — заголовок `## Запрос` повторяется
 - `docs/order-search/brainstorming.md` — нет заголовка `## Не входит в задачу`
 - `docs/order-search/brainstorming.md`, «Запрос» — нет записи `D-07`
+- `docs/order-search/brainstorming.md`, «Архивные заказы — Q-99» — нет записи `Q-99`
 - `docs/order-search/brainstorming.md` — в «Источниках» строка «Код и описание API:» не начинается с пути в обратных апострофах или со ссылки
 - `docs/order-search/brainstorming.md` — в «Источниках» строка «- описание API — `docs/api.md`» не начинается с пути в обратных апострофах или со ссылки
 - `docs/order-search/brainstorming.md` — в «Источниках» строка «* `src/cart/`» не начинается с пути в обратных апострофах или со ссылки

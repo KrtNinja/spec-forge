@@ -1,0 +1,5 @@
+{
+  "when": "номер записи в начале имени файла или папки — `D-07-api.md`, `D-07/api.md`, `D-07\\api.md`, ссылка на `D-07-protocol.md`: это путь, а не ссылка на решение",
+  "refs": ["FR-25", "core/design.md: Проверки"],
+  "call": { "action": "check", "task": "order-search" }
+}
