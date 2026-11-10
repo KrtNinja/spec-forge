@@ -59,7 +59,7 @@ function scopeOf(ideas, questions) {
     records,
     numbers: { D: numbers(records.D, 'D'), Q: numbers(records.Q, 'Q') },
     decided: numbersIn(records.D.flatMap((block) => block.lines)),
-    excluded: numbersIn(part(ideas, outOfScopeHeading).flatMap((block) => block.lines)),
+    excluded: numbersIn(part(ideas, outOfScopeHeading).flatMap(withHeading)),
     sources: part(ideas, sourcesHeading)
   };
 }
@@ -87,7 +87,7 @@ function ideasErrors(file, ideas, scope) {
 /** Раздел brainstorming.md: решение, «Источники» с подразделами или прочий раздел. @param {string} file @param {Block} block @param {Scope} scope */
 function ideasBlockErrors(file, block, scope) {
   if (scope.records.D.includes(block)) return recordErrors(file, block, 'D', scope);
-  return [...sourceErrors(file, block, scope.sources), ...deadReferences(file, block, '', scope)];
+  return [...sourceErrors(file, block, scope.sources), ...deadReferences(file, block, '', withHeading(block), scope)];
 }
 
 /**
@@ -106,7 +106,7 @@ function sourceErrors(file, block, sources) {
 /** Раздел questions.md: первого уровня — не запись. @param {string} file @param {Block} block @param {Scope} scope */
 function questionsBlockErrors(file, block, scope) {
   if (scope.records.Q.includes(block)) return recordErrors(file, block, 'Q', scope);
-  return deadReferences(file, block, '', scope);
+  return deadReferences(file, block, '', withHeading(block), scope);
 }
 
 /**
@@ -115,12 +115,12 @@ function questionsBlockErrors(file, block, scope) {
  */
 function recordErrors(file, block, kind, scope) {
   const number = recordNumber(block, kind);
-  if (number === '') return [texts.badRecordHeading(file, block.heading, kind), ...deadReferences(file, block, '', scope)];
+  if (number === '') return [texts.badRecordHeading(file, block.heading, kind), ...deadReferences(file, block, '', block.lines, scope)];
   const first = scope.records[kind].find((item) => recordNumber(item, kind) === number);
   return [
     ...(first === block ? [] : [texts.repeatedNumber(file, number)]),
     ...(kind === 'D' ? decisionErrors(file, number, block) : questionErrors(file, number, block, scope)),
-    ...deadReferences(file, block, number, scope)
+    ...deadReferences(file, block, number, block.lines, scope)
   ];
 }
 
@@ -157,13 +157,17 @@ function linkErrors(file, number, state, scope) {
   return [];
 }
 
+/** Текст раздела вне записей: номер упоминается и в заголовке. У записи заголовок — её номер. @param {Block} block */
+const withHeading = (block) => [block.heading, ...block.lines];
+
 /**
  * Упомянутые номера, которых нет среди записей: в записи — с её номером, вне записей — с заголовком раздела.
- * @param {string} file @param {Block} block @param {string} number номер записи; не запись — пусто @param {Scope} scope
+ * @param {string} file @param {Block} block @param {string} number номер записи; не запись — пусто
+ * @param {string[]} lines где искать упоминания @param {Scope} scope
  */
-function deadReferences(file, block, number, scope) {
+function deadReferences(file, block, number, lines, scope) {
   const existing = [...scope.numbers.D, ...scope.numbers.Q];
-  return numbersIn(block.lines).filter((item) => !existing.includes(item)).map((item) => (number === ''
+  return numbersIn(lines).filter((item) => !existing.includes(item)).map((item) => (number === ''
     ? texts.deadReferenceInSection(file, block.heading, item)
     : texts.deadReferenceInRecord(file, number, item)));
 }
