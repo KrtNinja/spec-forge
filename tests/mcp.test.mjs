@@ -11,6 +11,16 @@ import { exchange, handshake, message, root } from './server.mjs';
 const cases = join(root, 'tests', 'mcp');
 const answers = ['expected.md', 'error.md'];
 
+/** Метка в ответе случая: сегодняшняя дата по часам компьютера, например в строке одобрения. */
+const todayMark = '{сегодня}';
+
+/** Сегодняшняя дата ГГГГ-ММ-ДД по часам компьютера, как её берёт сервер. */
+function today() {
+  const now = new Date();
+  const [month, day] = [now.getMonth() + 1, now.getDate()].map((part) => String(part).padStart(2, '0'));
+  return `${now.getFullYear()}-${month}-${day}`;
+}
+
 /** @param {string} dir */
 function folders(dir) {
   return readdirSync(dir).map((name) => join(dir, name));
@@ -64,7 +74,9 @@ for (const dir of folders(cases).flatMap(folders)) {
       const replies = await exchange(cwd, [...handshake(), call]);
       const result = replies.find((reply) => reply.id === 2)?.result;
       assert.ok(result, 'нет результата tools/call');
-      assert.deepEqual(result.content, [{ type: 'text', text: spec.answer }], 'текст ответа');
+      // Дата берётся после ответа: так она совпадает с датой сервера, кроме вызова ровно в полночь.
+      const text = spec.answer.replaceAll(todayMark, today());
+      assert.deepEqual(result.content, [{ type: 'text', text }], 'текст ответа');
       assert.equal(result.isError === true, spec.isError, 'признак ошибки isError');
       assert.deepEqual(readTree(cwd), readTree(spec.after), 'документы после вызова');
     } finally {

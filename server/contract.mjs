@@ -17,6 +17,18 @@ const next = (numbers) => `Следующие номера: ${numbers.map(code).
 /** Путь — кодом, ссылка — как есть. @param {Source} item */
 const source = (item) => ('path' in item ? code(item.path) : item.link);
 
+/** Число с пробелами между разрядами: 10 001. @param {number} value */
+const grouped = (value) => String(value).replace(/\B(?=(\d{3})+$)/g, ' ');
+
+/**
+ * Где найдено: в записи — её номер, вне записей — заголовок раздела без знаков `#`.
+ * @param {string} file @param {string} place номер записи или заголовок раздела целиком
+ */
+const where = (file, place) => (place.startsWith('#') ? `${code(file)}, «${place.replace(/^#+ /, '')}»` : `${code(file)}, ${code(place)}`);
+
+/** @param {string[]} numbers открытые вопросы */
+const blocked = (numbers) => `Одобрить нельзя — открытые вопросы: ${numbers.map(code).join(', ')}.`;
+
 /** Подразделы «Источников» в _work/context.md: источник открылся при изучении или нет. */
 export const studiedHeading = '### Изучено';
 export const failedHeading = '### Не изучено';
@@ -30,12 +42,38 @@ export const decisionsHeading = '## Решения';
 export const outOfScopeHeading = '## Не входит в задачу';
 export const brainstormingHeadings = ['## Запрос', sourcesHeading, decisionsHeading, outOfScopeHeading];
 
+/** Разделы spec.md в порядке образца; каждый ровно один раз. */
+export const requirementsHeading = '## Требования';
+export const specHeadings = ['## Цель', requirementsHeading, outOfScopeHeading];
+
 // Записи. Заголовок записи — только номер, например `### D-07`: две цифры и больше, без лишних нулей впереди.
-// Решения D — под «Решениями» brainstorming.md, вопросы Q — в questions.md. Поле записи — пункт «- Поле: значение»,
-// каждое поле из договора — не больше одного раза.
+// Решения D — под «Решениями» brainstorming.md, вопросы Q — в questions.md, требования FR — под «Требованиями»
+// spec.md. Поле записи — пункт «- Поле: значение», каждое поле из договора — не больше одного раза.
 
 /** Поле решения D, которое должно быть заполнено: решение пользователя. */
 export const decisionField = 'Решение';
+
+/** Поле заменённого решения D: номер решения, которое его заменило. Заполнено — решение заменено. */
+export const replacedField = 'Заменено';
+
+/** Поля требования FR в порядке образца; оба обязательны. «Основание» — номера решений D через запятую. */
+export const requirementFields = { example: 'Пример', basis: 'Основание' };
+
+// Строка статуса spec.md — строка вне блоков кода, которая начинается со «Статус:»; ровно одна, пробелы в конце
+// не учитываются. Сумма — первые шесть знаков SHA-256
+// текста spec.md без строки статуса, приведённого к одному виду: переводы строк LF, без пробелов в конце строк
+// и без пустых строк в конце. Дата — сегодняшняя по часам компьютера, ГГГГ-ММ-ДД.
+
+/** Начало строки статуса: по нему строка находится, в том числе неверная. */
+export const statusPrefix = 'Статус:';
+export const draftStatus = 'Статус: черновик';
+/** @param {string} date @param {string} sum */
+export const approvedStatus = (date, sum) => `Статус: одобрено ${date} · ${sum}`;
+/** Строка одобрения: дата и сумма. */
+export const approvedPattern = /^Статус: одобрено (\d{4}-\d{2}-\d{2}) · ([0-9a-f]{6})$/;
+
+/** Предел spec.md в буквах и цифрах; больше — предупреждение, а не ошибка. */
+export const specLimit = 10000;
 
 /** Поля вопроса Q в порядке образца. */
 export const questionFields = { stage: 'Этап', blocking: 'Блокирует', help: 'Помощь', status: 'Статус', answer: 'Ответ' };
@@ -62,7 +100,7 @@ export const tool = {
       task: {
         type: 'string',
         description: 'Имя папки задачи в docs/ без пути, например order-search. '
-          + 'Для status — существующая задача или имя новой; не указано — status подберёт задачу сам. Для check обязательно.'
+          + 'Для status — существующая задача или имя новой; не указано — status подберёт задачу сам. Для check и link обязательно.'
       },
       command: {
         type: 'string',
@@ -77,14 +115,13 @@ export const tool = {
 export const texts = {
   // Вызов не удался (isError).
 
-  /** @param {string} action */
-  notImplemented: (action) => `Действие ${code(action)} пока не реализовано.`,
   noAction: 'Укажите действие: `status`, `check` или `link`.',
   noCommand: 'Укажите команду: `sf-grill`, `sf-spec`, `sf-review` или `sf-note`.',
   /** @param {string} command */
   commandNotImplemented: (command) => `Для ${code(command)} действие \`status\` пока не реализовано.`,
-  /** @param {string} task */
-  stageNotImplemented: (task) => `У задачи ${code(task)} уже есть \`spec.md\`: определение этапа для неё пока не реализовано.`,
+  /** Одобренный spec.md изменился или открыт вопрос: эти переходы — вместе с sf-note. @param {string} task */
+  stageNotImplemented: (task) => `Требования задачи ${code(task)} одобрены, но затем изменились или открыт вопрос: `
+    + 'определение этапа для этого пока не реализовано.',
   noTask: 'Укажите задачу: имя папки в `docs/`.',
   /** @param {string} task */
   unknownTask: (task) => `Задачи ${code(task)} нет: не найден ${code(`docs/${task}/brainstorming.md`)}.`,
@@ -159,12 +196,47 @@ export const texts = {
     ]),
     'Дальше: поручить задание отдельному агенту, добавив, что нужно выяснить. Вопросы, не зависящие от источников, задавать сразу.'
   ].join('\n\n'),
+  /** sf-grill для задачи со spec.md, ещё не одобренной; дальше строка Tip с /sf-spec. @param {string} task */
+  discussionDone: (task) => `Задача ${code(task)}: обсуждение закончено, требования — в \`spec.md\`.\n\n`
+    + `Дальше: работа с требованиями — ${code(`/sf-spec ${task}`)}.`,
 
-  // check. Ошибки — по файлам: brainstorming.md, questions.md, _work/context.md. Внутри файла сначала
-  // разделы (нет, повторяется) в порядке образца, затем сверху вниз; внутри записи — заголовок, поля
-  // в порядке образца, связь с другим файлом, ссылки.
+  // status: требования. Для sf-spec подходит задача, ещё не одобренная; новую задачу sf-spec не начинает.
 
-  /** Следующие свободные номера: D, затем Q. @param {string[]} numbers */
+  /** Названной задачи нет. @param {string} task */
+  noSuchTask: (task) => `Задачи ${code(task)} нет: не найден ${code(`docs/${task}/brainstorming.md`)}.\n\n`
+    + 'Дальше: выбрать существующую задачу или начать новую — `/sf-grill` с описанием идеи.',
+  noSpecTasks: 'Задач без одобренных требований нет.\n\nДальше: начать новую задачу — `/sf-grill` с описанием идеи.',
+  /** @param {string[]} tasks */
+  chooseSpecTask: (tasks) => `Задач без одобренных требований несколько:\n\n${list(tasks.map(code))}\n\n`
+    + 'Дальше: выбрать одну из них, затем `status` с её именем.',
+  /** spec.md нет, а источники не изучены или вопросы блокируют; дальше строка Tip с /sf-grill. @param {string} task @param {string} reason */
+  tooEarly: (task, reason) => `Задача ${code(task)}: требований ещё нет, обсуждение не закончено — ${reason}.\n\n`
+    + `Дальше: продолжить обсуждение — ${code(`/sf-grill ${task}`)}.`,
+  /** Причина для tooEarly: есть неизученные или недоступные источники. */
+  sourcesPending: 'не все источники изучены',
+  /** Причина для tooEarly. @param {string[]} numbers */
+  blockedBy: (numbers) => `подготовку требований блокируют ${numbers.map(code).join(', ')}`,
+  /** @param {string} task */
+  writeSpec: (task) => `Задача ${code(task)}: подготовка требований, \`spec.md\` ещё нет.\n\n`
+    + `Дальше: подготовить ${code(`docs/${task}/spec.md`)} по решениям из \`brainstorming.md\`.`,
+  /** У check есть ошибки в любом документе задачи. @param {string} task */
+  specErrors: (task) => `Задача ${code(task)}: требования в \`spec.md\`, есть ошибки проверки.\n\n`
+    + 'Дальше: вызвать `check` и исправить ошибки.',
+  /** @param {string} task @param {string[]} numbers */
+  specOpenQuestions: (task, numbers) => `Задача ${code(task)}: требования в \`spec.md\`. ${blocked(numbers)}\n\n`
+    + `Дальше: разобрать открытые вопросы с пользователем. Ответ бизнеса или разработчика — через ${code(`/sf-note ${task}`)}.`,
+  /** Проверки пройдены, вопросов нет: проверка ИИ или одобрение (FR-16). Путь проверки — вместе с sf-review. @param {string} task */
+  specReady: (task) => `Задача ${code(task)}: требования в \`spec.md\`, проверки пройдены.\n\n`
+    + `Дальше: предложить «Проверить требования» — ${code(`/sf-review ${task}`)}, рекомендуется, — или «Одобрить» строкой из \`check\`.`,
+  /** Одобрено, сумма совпадает, открытых вопросов нет. @param {string} task */
+  specApproved: (task) => `Задача ${code(task)}: требования одобрены, работа завершена.\n\nНовые сведения — ${code(`/sf-note ${task}`)}.`,
+
+  // check. Ошибки — по файлам: brainstorming.md, questions.md, spec.md, _work/context.md. Внутри файла сначала
+  // разделы (нет, повторяется) в порядке образца, у spec.md затем строка статуса, дальше сверху вниз; внутри
+  // записи — заголовок, поля в порядке образца, связь с другим файлом, упоминания номеров, ссылки Markdown.
+  // Есть spec.md — после строки номеров абзацами: предупреждение о размере, затем, если ошибок нет, одобрение.
+
+  /** Следующие свободные номера: D, Q, а если есть spec.md — FR. @param {string[]} numbers */
   noErrors: (numbers) => `Ошибок нет. ${next(numbers)}`,
   /** Строки «где — что» и следующие номера. @param {string[]} lines @param {string[]} numbers */
   errors: (lines, numbers) => `**Ошибки**\n\n${list(lines)}\n\n${next(numbers)}`,
@@ -176,7 +248,7 @@ export const texts = {
   badSourceLine: (file, line) => `${code(file)} — в «Источниках» строка «${line}» не начинается с пути в обратных апострофах или со ссылки`,
   /** @param {string} file @param {string} heading */
   sourceSubheading: (file, heading) => `${code(file)} — в «Источниках» подзаголовок ${code(heading)}: пункты под ним не считаются источниками`,
-  /** Заголовок там, где должны быть только записи. @param {string} file @param {string} heading @param {'D' | 'Q'} kind */
+  /** Заголовок там, где должны быть только записи. @param {string} file @param {string} heading @param {'D' | 'Q' | 'FR'} kind */
   badRecordHeading: (file, heading, kind) => `${code(file)} — заголовок ${code(heading)}: нужен только номер записи, например ${code(`### ${kind}-01`)}`,
   /** @param {string} file @param {string} number */
   repeatedNumber: (file, number) => `${code(file)} — номер ${code(number)} повторяется`,
@@ -192,8 +264,55 @@ export const texts = {
   /** Вопрос «не входит» не упомянут в «Не входит в задачу». @param {string} file @param {string} number */
   notOutOfScope: (file, number) => `${code(file)}, ${code(number)} — вопрос не входит в задачу, `
     + 'но не упомянут в «Не входит в задачу» `brainstorming.md`',
-  /** Номер D или Q, которого нет, в записи. @param {string} file @param {string} record @param {string} number */
-  deadReferenceInRecord: (file, record, number) => `${code(file)}, ${code(record)} — нет записи ${code(number)}`,
-  /** Номер D или Q, которого нет, в разделе вне записей. @param {string} file @param {string} heading заголовок раздела @param {string} number */
-  deadReferenceInSection: (file, heading, number) => `${code(file)}, «${heading.replace(/^#+ /, '')}» — нет записи ${code(number)}`
+  /**
+   * Упомянут номер D, Q или FR, которого нет среди записей.
+   * @param {string} file @param {string} place номер записи или заголовок раздела @param {string} number
+   */
+  deadReference: (file, place, number) => `${where(file, place)} — нет записи ${code(number)}`,
+  /**
+   * Ссылка Markdown на файл, которого нет, или на запись, которой нет в этом файле. Внешние адреса не проверяются.
+   * @param {string} file @param {string} place @param {string} target адрес ссылки как записан
+   */
+  deadLink: (file, place, target) => `${where(file, place)} — ссылка ${code(target)} ведёт в тупик`,
+  /**
+   * Текст ссылки — номер записи, а адрес — не её место в документе задачи.
+   * @param {string} file @param {string} place @param {string} number @param {string} target адрес ссылки как записан
+   */
+  wrongLink: (file, place, number, target) => `${where(file, place)} — ссылка ${code(number)} ведёт на ${code(target)}, `
+    + 'а не на свою запись: исправит `link`',
+  /** @param {string} file */
+  noStatusLine: (file) => `${code(file)} — нет строки статуса, например «${draftStatus}»`,
+  /** @param {string} file */
+  repeatedStatusLine: (file) => `${code(file)} — строка статуса повторяется`,
+  /** @param {string} file @param {string} line без пробелов в конце */
+  badStatusLine: (file, line) => `${code(file)} — строка статуса «${line}» не подходит: `
+    + `нужна «${draftStatus}» или строка одобрения из ответа \`check\``,
+  /** @param {string} file @param {string} number */
+  noBasisDecision: (file, number) => `${where(file, number)} — в «Основании» нет номера решения \`D-…\``,
+  /** @param {string} file @param {string} number @param {string} decision */
+  replacedBasis: (file, number, decision) => `${where(file, number)} — основание ${code(decision)} заменено другим решением`,
+
+  /** Не ошибка: проверки и одобрение не останавливает. @param {string} file @param {number} count буквы и цифры */
+  bigSpec: (file, count) => `Предупреждение: в ${code(file)} больше ${grouped(specLimit)} букв и цифр — ${grouped(count)}. `
+    + 'Документ разросся: возможно, задачу стоит разделить.',
+  /** Условия одобрения выполнены. @param {string} file @param {string} line готовая строка статуса */
+  approvalReady: (file, line) => 'Условия одобрения выполнены. Одобрить — только по явному решению пользователя: '
+    + `заменить строку статуса в ${code(file)} строкой ниже и снова вызвать \`check\`.\n\n${line}`,
+  /** Ошибок нет, но открыты вопросы. @param {string[]} numbers */
+  approvalBlocked: blocked,
+  /** Одобрено и сумма совпадает (FR-22). @param {string} spec @param {string} questions нет questions.md — пусто */
+  approved: (spec, questions) => `Документ с требованиями одобрен: ${code(spec)}.`
+    + (questions === '' ? '' : `\n\nВопросы и ответы: ${code(questions)}.`),
+  /** Одобрено, но сумма не совпадает. Сравнение с одобренной версией — вместе с sf-note. @param {string} file */
+  changedAfterApproval: (file) => `${code(file)} изменён после одобрения: сумма не совпадает. `
+    + 'Сравнение с одобренной версией пока не реализовано.',
+
+  // link. Номера D, Q и FR в brainstorming.md, questions.md и spec.md.
+
+  /** @param {number} added @param {number} fixed */
+  linked: (added, fixed) => `Ссылок проставлено: ${added}, исправлено: ${fixed}.`,
+  /** Ссылки, которые не поставить и не исправить. @param {string[]} lines */
+  notLinked: (lines) => `**Не исправлено**\n\n${list(lines)}`,
+  /** @param {string} file @param {string} place @param {string} number */
+  ambiguousNumber: (file, place, number) => `${where(file, place)} — ${code(number)}: записей с этим номером несколько`
 };

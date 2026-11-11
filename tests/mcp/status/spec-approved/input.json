@@ -1,0 +1,5 @@
+{
+  "when": "/sf-spec для одобренной задачи: сумма совпадает, вопросов нет — работа завершена",
+  "refs": ["FR-22", "core/design.md: Состояние и переходы"],
+  "call": { "action": "status", "command": "sf-spec", "task": "order-search" }
+}

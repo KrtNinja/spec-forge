@@ -1,0 +1,5 @@
+{
+  "when": "/sf-spec: spec.md по образцу, но check находит ошибку в brainstorming.md — исправить",
+  "refs": ["FR-16", "core/design.md: Состояние и переходы"],
+  "call": { "action": "status", "command": "sf-spec", "task": "order-search" }
+}

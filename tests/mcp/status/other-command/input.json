@@ -1,5 +1,5 @@
 {
-  "when": "status вызван для команды, кроме sf-grill: её переходы ещё не реализованы",
+  "when": "status вызван для sf-review: его переходы ещё не реализованы",
   "refs": ["FR-23"],
-  "call": { "action": "status", "command": "sf-spec", "task": "order-search" }
+  "call": { "action": "status", "command": "sf-review", "task": "order-search" }
 }

@@ -1,0 +1,5 @@
+{
+  "when": "/sf-spec: ошибок нет, но открыты неблокирующие вопросы — разобрать их, одобрить нельзя",
+  "refs": ["FR-15", "FR-21", "core/design.md: Состояние и переходы"],
+  "call": { "action": "status", "command": "sf-spec", "task": "order-search" }
+}

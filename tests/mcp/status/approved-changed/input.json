@@ -1,0 +1,5 @@
+{
+  "when": "одобренный spec.md изменился — сумма не совпадает: этот переход ещё не реализован",
+  "refs": ["FR-24", "core/design.md: Состояние и переходы"],
+  "call": { "action": "status", "command": "sf-spec", "task": "order-search" }
+}
