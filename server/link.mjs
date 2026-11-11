@@ -1,12 +1,12 @@
 // @ts-check
-// Действие link: номера D, Q и FR в brainstorming.md, questions.md и spec.md становятся ссылками на свои записи,
-// ссылки с номером записи, которые ведут не на неё, исправляются. Заголовки, блоки кода и строки до первого
-// заголовка не меняются. Сначала читаются все документы, затем пишутся только изменившиеся.
+// Действие link: номера D, Q, FR и R в brainstorming.md, questions.md, spec.md и _work/review.md становятся
+// ссылками на свои записи, ссылки с номером записи, которые ведут не на неё, исправляются. Заголовки, блоки кода
+// и строки до первого заголовка не меняются. Сначала читаются все документы, затем пишутся только изменившиеся.
 import { writeFileSync } from 'node:fs';
 import { texts } from './texts.mjs';
 import { taskProblem } from './docs.mjs';
 import { codeOrLink, leadsTo, linkNumber, recordTarget } from './links.mjs';
-import { mentionPattern } from './records.mjs';
+import { mentionPattern, numberPattern } from './records.mjs';
 import { docsWithKinds, placeOf, readDocs, recordCount, scopeOf } from './task.mjs';
 
 /** @typedef {import('./task.mjs').Doc} Doc */
@@ -20,7 +20,10 @@ import { docsWithKinds, placeOf, readDocs, recordCount, scopeOf } from './task.m
 const piece = new RegExp(`${codeOrLink}|https?://[^\\s)>\\]]+|${mentionPattern}`, 'gu');
 
 /** Только номер в обратных апострофах. */
-const codeNumber = /^`((?:FR|[DQ])-\d+)`$/;
+const codeNumber = new RegExp(`^\`(${numberPattern})\`$`);
+
+/** Только номер. */
+const bareNumber = new RegExp(`^${numberPattern}$`);
 
 /** Поле вызова — строка; не строка или нет поля — пусто. @param {{ task: string }} call @returns {import('./status.mjs').Answer} */
 export function link({ task }) {
@@ -61,7 +64,7 @@ function pieceNumber(match, text, target) {
   if (target !== undefined) return linkNumber(/** @type {string} */ (text));
   const code = codeNumber.exec(match);
   if (code) return code[1];
-  return /^(?:FR|[DQ])-\d+$/.test(match) ? match : '';
+  return bareNumber.test(match) ? match : '';
 }
 
 /**

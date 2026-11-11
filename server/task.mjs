@@ -1,27 +1,28 @@
 // @ts-check
 // Документы задачи и записи в них — общее для check, link и status. Записи D лежат в brainstorming.md,
-// Q — в questions.md, FR — в spec.md; все три документа читаются сразу, до любых проверок и правок.
+// Q — в questions.md, FR — в spec.md, R — в _work/review.md; все четыре документа читаются сразу,
+// до любых проверок и правок.
 import { existsSync } from 'node:fs';
 import { outOfScopeHeading, replacedField, sourcesHeading } from './contract.mjs';
 import { blocks, part, readText, taskFile } from './docs.mjs';
 import {
-  decisionBlocks, fieldValues, isOpen, kindOf, nextNumber, numbersIn, questionBlocks, questionNumbers, recordNumber,
-  requirementBlocks
+  decisionBlocks, fieldValues, headingNumbers, hindersApproval, isBlockingRemark, isOpen, kindOf, latestRemarks, nextNumber,
+  numbersIn, questionBlocks, recordNumber, remarkBlocks, remarkDecision, requirementBlocks
 } from './records.mjs';
 
 /** @typedef {import('./docs.mjs').Block} Block */
 /** @typedef {import('./records.mjs').Kind} Kind */
 /** Документ задачи: путь от корня проекта, есть ли он, текст и разделы. @typedef {{ path: string, exists: boolean, text: string, blocks: Block[] }} Doc */
-/** @typedef {{ ideas: Doc, questions: Doc, spec: Doc }} Docs */
+/** @typedef {{ ideas: Doc, questions: Doc, spec: Doc, review: Doc }} Docs */
 /**
  * Что нужно проверкам и ссылкам: документы, записи каждого вида и их номера, заменённые решения,
- * номера, упомянутые в решениях и в «Не входит в задачу», и разделы «Источников».
+ * номера, упомянутые в решениях, в «Не входит в задачу» и в вопросах, и разделы «Источников».
  * @typedef {{ docs: Docs, records: Record<Kind, Block[]>, numbers: Record<Kind, string[]>, replaced: string[],
- *   decided: string[], excluded: string[], sources: Block[] }} Scope
+ *   decided: string[], excluded: string[], asked: string[], sources: Block[] }} Scope
  */
 
 /** Документ с записями каждого вида. @type {Record<Kind, keyof Docs>} */
-const homes = { D: 'ideas', Q: 'questions', FR: 'spec' };
+const homes = { D: 'ideas', Q: 'questions', FR: 'spec', R: 'review' };
 
 /** @param {string} task @param {string} name */
 function readDoc(task, name) {
@@ -32,7 +33,12 @@ function readDoc(task, name) {
 
 /** Документы задачи; не читается хоть один — Unreadable, до любых правок. @param {string} task @returns {Docs} */
 export function readDocs(task) {
-  return { ideas: readDoc(task, 'brainstorming.md'), questions: readDoc(task, 'questions.md'), spec: readDoc(task, 'spec.md') };
+  return {
+    ideas: readDoc(task, 'brainstorming.md'),
+    questions: readDoc(task, 'questions.md'),
+    spec: readDoc(task, 'spec.md'),
+    review: readDoc(task, '_work/review.md')
+  };
 }
 
 /** Номера записей с правильным заголовком, повторы сохраняются. @param {Block[]} records @param {Kind} kind */
@@ -46,16 +52,22 @@ export const withHeading = (block) => [block.heading, ...block.lines];
 /** @param {Docs} docs @returns {Scope} */
 export function scopeOf(docs) {
   const records = {
-    D: decisionBlocks(docs.ideas.blocks), Q: questionBlocks(docs.questions.blocks), FR: requirementBlocks(docs.spec.blocks)
+    D: decisionBlocks(docs.ideas.blocks),
+    Q: questionBlocks(docs.questions.blocks),
+    FR: requirementBlocks(docs.spec.blocks),
+    R: remarkBlocks(docs.review.blocks)
   };
   return {
     docs,
     records,
-    numbers: { D: numbers(records.D, 'D'), Q: numbers(records.Q, 'Q'), FR: numbers(records.FR, 'FR') },
+    numbers: {
+      D: numbers(records.D, 'D'), Q: numbers(records.Q, 'Q'), FR: numbers(records.FR, 'FR'), R: numbers(records.R, 'R')
+    },
     replaced: records.D.filter((block) => fieldValues(block.lines, replacedField).some((value) => value !== ''))
       .map((block) => recordNumber(block, 'D')),
     decided: numbersIn(records.D.flatMap((block) => block.lines)),
     excluded: numbersIn(part(docs.ideas.blocks, outOfScopeHeading).flatMap(withHeading)),
+    asked: numbersIn(records.Q.flatMap((block) => block.lines)),
     sources: part(docs.ideas.blocks, sourcesHeading)
   };
 }
@@ -77,14 +89,34 @@ export function placeOf(scope, kind, block) {
 
 /** Документы задачи с видом их записей, в порядке проверки. @param {Scope} scope @returns {[Doc, Kind][]} */
 export function docsWithKinds(scope) {
-  return [[scope.docs.ideas, 'D'], [scope.docs.questions, 'Q'], [scope.docs.spec, 'FR']];
+  return [[scope.docs.ideas, 'D'], [scope.docs.questions, 'Q'], [scope.docs.spec, 'FR'], [scope.docs.review, 'R']];
 }
 
 /** Открытые вопросы в порядке записей. @param {Scope} scope */
-export const openQuestions = (scope) => questionNumbers(scope.records.Q.filter(isOpen));
+export const openQuestions = (scope) => headingNumbers(scope.records.Q.filter(isOpen));
 
-/** Следующие свободные номера: D, Q, а если есть spec.md — FR. @param {Scope} scope */
+/**
+ * Замечания последнего раздела _work/review.md в порядке записей: без решения, блокирующие среди них и препятствия
+ * одобрению — блокирующие без решения или отложенные. Файла нет — замечаний нет.
+ * @param {Scope} scope
+ */
+export function remarksOf(scope) {
+  const latest = latestRemarks(scope.docs.review.blocks);
+  const undecided = latest.filter((block) => remarkDecision(block) === '');
+  return {
+    undecided: headingNumbers(undecided),
+    blocking: headingNumbers(undecided.filter(isBlockingRemark)),
+    hindering: headingNumbers(latest.filter(hindersApproval))
+  };
+}
+
+/** Следующие свободные номера: D, Q, а если есть spec.md — FR, если есть _work/review.md — R. @param {Scope} scope */
 export function nextNumbers(scope) {
-  const next = [nextNumber('D', scope.numbers.D), nextNumber('Q', scope.numbers.Q)];
-  return scope.docs.spec.exists ? [...next, nextNumber('FR', scope.numbers.FR)] : next;
+  const { spec, review } = scope.docs;
+  return [
+    nextNumber('D', scope.numbers.D),
+    nextNumber('Q', scope.numbers.Q),
+    ...(spec.exists ? [nextNumber('FR', scope.numbers.FR)] : []),
+    ...(review.exists ? [nextNumber('R', scope.numbers.R)] : [])
+  ];
 }
