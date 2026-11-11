@@ -14,6 +14,9 @@ const list = (items) => items.map((item) => `- ${item}`).join('\n');
 /** @param {string[]} numbers */
 const next = (numbers) => `Следующие номера: ${numbers.map(code).join(', ')}.`;
 
+/** Ссылка Markdown на файл от корня проекта: имя файла — текстом. @param {string} path */
+const fileLink = (path) => `[${path.slice(path.lastIndexOf('/') + 1)}](${path})`;
+
 /** Путь — кодом, ссылка — как есть. @param {Source} item */
 const source = (item) => ('path' in item ? code(item.path) : item.link);
 
@@ -223,8 +226,9 @@ export const texts = {
   specErrors: (task) => `Задача ${code(task)}: требования в \`spec.md\`, есть ошибки проверки.\n\n`
     + 'Дальше: вызвать `check` и исправить ошибки.',
   /** @param {string} task @param {string[]} numbers */
-  specOpenQuestions: (task, numbers) => `Задача ${code(task)}: требования в \`spec.md\`. ${blocked(numbers)}\n\n`
-    + `Дальше: разобрать открытые вопросы с пользователем. Ответ бизнеса или разработчика — через ${code(`/sf-note ${task}`)}.`,
+  specOpenQuestions: (task, numbers) => `Задача ${code(task)}: требования в \`spec.md\`, проверки пройдены. ${blocked(numbers)}\n\n`
+    + `Дальше: предложить «Проверить требования» (рекомендуется) — ${code(`/sf-review ${task}`)} — или разобрать открытые вопросы. `
+    + `Ответ бизнеса или разработчика — через ${code(`/sf-note ${task}`)}.`,
   /** Проверки пройдены, вопросов нет: проверка ИИ или одобрение (FR-16). Путь проверки — вместе с sf-review. @param {string} task */
   specReady: (task) => `Задача ${code(task)}: требования в \`spec.md\`, проверки пройдены.\n\n`
     + `Дальше: предложить «Проверить требования» (рекомендуется) — ${code(`/sf-review ${task}`)} — или «Одобрить» строкой из \`check\`.`,
@@ -298,11 +302,14 @@ export const texts = {
   /** Условия одобрения выполнены. @param {string} file @param {string} line готовая строка статуса */
   approvalReady: (file, line) => 'Условия одобрения выполнены. Одобрить — только по явному решению пользователя: '
     + `заменить строку статуса в ${code(file)} строкой ниже и снова вызвать \`check\`.\n\n${line}`,
-  /** Ошибок нет, но открыты вопросы. @param {string[]} numbers */
+  /** Ошибок нет, но открыты вопросы — и у черновика, и у строки одобрения: одобрение не подтверждается. @param {string[]} numbers */
   approvalBlocked: blocked,
-  /** Одобрено и сумма совпадает (FR-22). @param {string} spec @param {string} questions нет questions.md — пусто */
-  approved: (spec, questions) => `Документ с требованиями одобрен: ${code(spec)}.`
-    + (questions === '' ? '' : `\n\nВопросы и ответы: ${code(questions)}.`),
+  /**
+   * Одобрено, сумма совпадает, открытых вопросов нет (FR-22): ссылки на документы, а не пути.
+   * @param {string} spec @param {string} questions нет questions.md — пусто
+   */
+  approved: (spec, questions) => `Документ с требованиями одобрен: ${fileLink(spec)}.`
+    + (questions === '' ? '' : `\n\nВопросы и ответы: ${fileLink(questions)}.`),
   /** Одобрено, но сумма не совпадает. Сравнение с одобренной версией — вместе с sf-note. @param {string} file */
   changedAfterApproval: (file) => `${code(file)} изменён после одобрения: сумма не совпадает. `
     + 'Сравнение с одобренной версией пока не реализовано.',
