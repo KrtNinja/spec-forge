@@ -1,0 +1,5 @@
+{
+  "when": "в spec.md ровно 10 000 букв и цифр: предупреждения нет",
+  "refs": ["core/design.md: Проверки"],
+  "call": { "action": "check", "task": "order-search" }
+}

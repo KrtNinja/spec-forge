@@ -1,0 +1,5 @@
+{
+  "when": "link для папки без brainstorming.md: такой задачи нет",
+  "refs": ["FR-25"],
+  "call": { "action": "link", "task": "order-search" }
+}

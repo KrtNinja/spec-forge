@@ -1,23 +1,23 @@
 // @ts-check
 // Действие check: проверка документов задачи и следующие свободные номера записей.
-// Ошибки — по файлам: brainstorming.md, questions.md, _work/context.md. Внутри файла сначала разделы
-// в порядке образца, затем сверху вниз; внутри записи — заголовок, поля, связь с другим файлом, ссылки.
+// Ошибки — по файлам: brainstorming.md, questions.md, spec.md, _work/context.md. Внутри файла сначала разделы
+// в порядке образца, у spec.md затем строка статуса, дальше сверху вниз; внутри записи — заголовок, поля
+// в порядке образца, связь с другим файлом, упоминания номеров, ссылки Markdown.
 import { existsSync } from 'node:fs';
 import {
-  blockingValues, brainstormingHeadings, contextHeadings, decisionField, outOfScopeHeading, questionFields, questionStatuses,
-  sourcesHeading, texts, tool
+  blockingValues, brainstormingHeadings, contextHeadings, decisionField, questionFields, questionStatuses, replacedField,
+  requirementFields, sourcesHeading, specHeadings, texts, tool
 } from './contract.mjs';
-import { blocks, headings, isTask, listedSources, part, readText, taskFile } from './docs.mjs';
-import { decisionBlocks, field, fieldValues, nextNumber, numbersIn, questionBlocks, recordNumber } from './records.mjs';
+import { headings, listedSources, readText, taskFile, taskProblem } from './docs.mjs';
+import { linkErrors } from './links.mjs';
+import { field, fieldValues, numbersIn, recordNumber } from './records.mjs';
+import { specNotes, statusErrors } from './spec.mjs';
+import { nextNumbers, placeOf, readDocs, scopeOf, withHeading } from './task.mjs';
 
 /** @typedef {import('./docs.mjs').Block} Block */
+/** @typedef {import('./task.mjs').Doc} Doc */
+/** @typedef {import('./task.mjs').Scope} Scope */
 /** @typedef {import('./records.mjs').Kind} Kind */
-/**
- * Что нужно проверкам записей: записи каждого вида, их номера, номера, упомянутые в решениях
- * и в «Не входит в задачу», и разделы «Источников».
- * @typedef {{ records: Record<Kind, Block[]>, numbers: Record<Kind, string[]>, decided: string[],
- *   excluded: string[], sources: Block[] }} Scope
- */
 
 const { stage, blocking, help, status, answer } = questionFields;
 
@@ -37,36 +37,26 @@ const required = new Map([
 
 /** Поле вызова — строка; не строка или нет поля — пусто. @param {{ task: string }} call @returns {import('./status.mjs').Answer} */
 export function check({ task }) {
-  if (task === '') return { error: texts.noTask };
-  if (!isTask(task)) return { error: texts.unknownTask(task) };
-  const files = { ideas: taskFile(task, 'brainstorming.md'), questions: taskFile(task, 'questions.md') };
-  const ideas = blocks(readText(files.ideas));
-  const questions = blocks(readText(files.questions));
-  const scope = scopeOf(ideas, questions);
+  const problem = taskProblem(task);
+  if (problem !== '') return { error: problem };
+  const { errors, scope } = inspect(task);
+  const next = nextNumbers(scope);
+  const summary = errors.length === 0 ? texts.noErrors(next) : texts.errors(errors, next);
+  return [summary, ...specNotes(scope, errors.length === 0)].join('\n\n');
+}
+
+/** Ошибки всех документов существующей задачи и разобранные документы. @param {string} task */
+export function inspect(task) {
+  const scope = scopeOf(readDocs(task));
+  const { ideas, questions, spec } = scope.docs;
   const errors = [
-    ...ideasErrors(files.ideas, ideas, scope),
-    ...questions.flatMap((block) => questionsBlockErrors(files.questions, block, scope)),
+    ...headingErrors(ideas.path, brainstormingHeadings, ideas.blocks.map((block) => block.heading)),
+    ...ideas.blocks.flatMap((block) => ideasBlockErrors(ideas.path, block, scope)),
+    ...questions.blocks.flatMap((block) => blockErrors(questions, 'Q', block, scope)),
+    ...specErrors(spec, scope),
     ...contextErrors(taskFile(task, '_work/context.md'))
   ];
-  const next = [nextNumber('D', scope.numbers.D), nextNumber('Q', scope.numbers.Q)];
-  return errors.length === 0 ? texts.noErrors(next) : texts.errors(errors, next);
-}
-
-/** @param {Block[]} ideas разделы brainstorming.md @param {Block[]} questions разделы questions.md @returns {Scope} */
-function scopeOf(ideas, questions) {
-  const records = { D: decisionBlocks(ideas), Q: questionBlocks(questions) };
-  return {
-    records,
-    numbers: { D: numbers(records.D, 'D'), Q: numbers(records.Q, 'Q') },
-    decided: numbersIn(records.D.flatMap((block) => block.lines)),
-    excluded: numbersIn(part(ideas, outOfScopeHeading).flatMap(withHeading)),
-    sources: part(ideas, sourcesHeading)
-  };
-}
-
-/** Номера записей с правильным заголовком, повторы сохраняются. @param {Block[]} records @param {Kind} kind */
-function numbers(records, kind) {
-  return records.map((block) => recordNumber(block, kind)).filter((number) => number !== '');
+  return { errors, scope };
 }
 
 /** @param {string} file @param {string[]} expected заголовки, каждый ровно один раз @param {string[]} found */
@@ -78,16 +68,9 @@ function headingErrors(file, expected, found) {
   });
 }
 
-/** @param {string} file @param {Block[]} ideas @param {Scope} scope */
-function ideasErrors(file, ideas, scope) {
-  const sections = headingErrors(file, brainstormingHeadings, ideas.map((block) => block.heading));
-  return [...sections, ...ideas.flatMap((block) => ideasBlockErrors(file, block, scope))];
-}
-
-/** Раздел brainstorming.md: решение, «Источники» с подразделами или прочий раздел. @param {string} file @param {Block} block @param {Scope} scope */
+/** Раздел brainstorming.md: «Источники» и их подразделы проверяются ещё и на источники. @param {string} file @param {Block} block @param {Scope} scope */
 function ideasBlockErrors(file, block, scope) {
-  if (scope.records.D.includes(block)) return recordErrors(file, block, 'D', scope);
-  return [...sourceErrors(file, block, scope.sources), ...deadReferences(file, block, '', withHeading(block), scope)];
+  return [...sourceErrors(file, block, scope.sources), ...blockErrors(scope.docs.ideas, 'D', block, scope)];
 }
 
 /**
@@ -103,10 +86,23 @@ function sourceErrors(file, block, sources) {
   return sources.includes(block) ? [texts.sourceSubheading(file, block.heading)] : [];
 }
 
-/** Раздел questions.md: первого уровня — не запись. @param {string} file @param {Block} block @param {Scope} scope */
-function questionsBlockErrors(file, block, scope) {
-  if (scope.records.Q.includes(block)) return recordErrors(file, block, 'Q', scope);
-  return deadReferences(file, block, '', withHeading(block), scope);
+/** spec.md, если он есть: разделы, строка статуса, затем разделы сверху вниз. @param {Doc} spec @param {Scope} scope */
+function specErrors(spec, scope) {
+  if (!spec.exists) return [];
+  return [
+    ...headingErrors(spec.path, specHeadings, spec.blocks.map((block) => block.heading)),
+    ...statusErrors(spec.path, spec.text),
+    ...spec.blocks.flatMap((block) => blockErrors(spec, 'FR', block, scope))
+  ];
+}
+
+/**
+ * Раздел документа: запись своего вида или раздел вне записей — упоминания номеров и ссылки, в том числе в заголовке.
+ * @param {Doc} doc @param {Kind} kind вид записей документа @param {Block} block @param {Scope} scope
+ */
+function blockErrors(doc, kind, block, scope) {
+  if (scope.records[kind].includes(block)) return recordErrors(doc.path, block, kind, scope);
+  return references(doc.path, block.heading, withHeading(block), scope);
 }
 
 /**
@@ -115,19 +111,22 @@ function questionsBlockErrors(file, block, scope) {
  */
 function recordErrors(file, block, kind, scope) {
   const number = recordNumber(block, kind);
-  if (number === '') return [texts.badRecordHeading(file, block.heading, kind), ...deadReferences(file, block, '', block.lines, scope)];
+  const place = placeOf(scope, kind, block);
+  if (number === '') return [texts.badRecordHeading(file, block.heading, kind), ...references(file, place, block.lines, scope)];
   const first = scope.records[kind].find((item) => recordNumber(item, kind) === number);
   return [
     ...(first === block ? [] : [texts.repeatedNumber(file, number)]),
-    ...(kind === 'D' ? decisionErrors(file, number, block) : questionErrors(file, number, block, scope)),
-    ...deadReferences(file, block, number, block.lines, scope)
+    ...fieldsOf[kind](file, number, block, scope),
+    ...references(file, place, block.lines, scope)
   ];
 }
 
-/** @param {string} file @param {string} number @param {Block} block */
-function decisionErrors(file, number, block) {
-  return fieldErrors(file, number, block.lines, decisionField, [decisionField]);
-}
+/** Поля записи каждого вида и связь с другим файлом. @type {Record<Kind, (file: string, number: string, block: Block, scope: Scope) => string[]>} */
+const fieldsOf = {
+  D: (file, number, block) => [decisionField, replacedField].flatMap((name) => fieldErrors(file, number, block.lines, name, [decisionField])),
+  Q: questionErrors,
+  FR: requirementErrors
+};
 
 /**
  * Поля в порядке образца, затем связь с brainstorming.md. Статус повторяется — как недопустимый.
@@ -138,7 +137,22 @@ function questionErrors(file, number, block, scope) {
   const needed = required.get(state) || [status];
   return [
     ...Object.values(questionFields).flatMap((name) => fieldErrors(file, number, block.lines, name, needed)),
-    ...linkErrors(file, number, state, scope)
+    ...decisionLinkErrors(file, number, state, scope)
+  ];
+}
+
+/**
+ * Оба поля обязательны; в заполненном «Основании» — номер решения D, и ни одно названное решение не заменено.
+ * @param {string} file @param {string} number @param {Block} block @param {Scope} scope
+ */
+function requirementErrors(file, number, block, scope) {
+  const names = Object.values(requirementFields);
+  const basis = field(block.lines, requirementFields.basis);
+  const decisions = numbersIn([basis]).filter((item) => item.startsWith('D-'));
+  return [
+    ...names.flatMap((name) => fieldErrors(file, number, block.lines, name, names)),
+    ...(basis !== '' && decisions.length === 0 ? [texts.noBasisDecision(file, number)] : []),
+    ...decisions.filter((item) => scope.replaced.includes(item)).map((item) => texts.replacedBasis(file, number, item))
   ];
 }
 
@@ -158,25 +172,22 @@ function fieldErrors(file, number, lines, name, needed) {
  * Решённый вопрос упомянут в записи D, вопрос «не входит» — в «Не входит в задачу».
  * @param {string} file @param {string} number @param {string} state @param {Scope} scope
  */
-function linkErrors(file, number, state, scope) {
+function decisionLinkErrors(file, number, state, scope) {
   if (state === questionStatuses.solved && !scope.decided.includes(number)) return [texts.noDecision(file, number)];
   if (state === questionStatuses.outOfScope && !scope.excluded.includes(number)) return [texts.notOutOfScope(file, number)];
   return [];
 }
 
-/** Текст раздела вне записей: номер упоминается и в заголовке. У записи заголовок — её номер. @param {Block} block */
-const withHeading = (block) => [block.heading, ...block.lines];
-
 /**
- * Упомянутые номера, которых нет среди записей: в записи — с её номером, вне записей — с заголовком раздела.
- * @param {string} file @param {Block} block @param {string} number номер записи; не запись — пусто
- * @param {string[]} lines где искать упоминания @param {Scope} scope
+ * Упомянутые номера, которых нет среди записей, затем ссылки Markdown.
+ * @param {string} file @param {string} place номер записи или заголовок раздела @param {string[]} lines @param {Scope} scope
  */
-function deadReferences(file, block, number, lines, scope) {
-  const existing = [...scope.numbers.D, ...scope.numbers.Q];
-  return numbersIn(lines).filter((item) => !existing.includes(item)).map((item) => (number === ''
-    ? texts.deadReferenceInSection(file, block.heading, item)
-    : texts.deadReferenceInRecord(file, number, item)));
+function references(file, place, lines, scope) {
+  const existing = Object.values(scope.numbers).flat();
+  return [
+    ...numbersIn(lines).filter((item) => !existing.includes(item)).map((item) => texts.deadReference(file, place, item)),
+    ...linkErrors(scope, file, place, lines)
+  ];
 }
 
 /**

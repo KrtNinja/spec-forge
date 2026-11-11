@@ -1,0 +1,5 @@
+{
+  "when": "`spec.md` есть, но не читается: вызов не удаётся с именем этого документа",
+  "refs": ["core/design.md: Ответ инструмента"],
+  "call": { "action": "check", "task": "order-search" }
+}

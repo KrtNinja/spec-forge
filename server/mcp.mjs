@@ -4,18 +4,14 @@ import { createInterface } from 'node:readline';
 import { check } from './check.mjs';
 import { texts, tool } from './contract.mjs';
 import { Unreadable } from './docs.mjs';
+import { link } from './link.mjs';
 import { status } from './status.mjs';
 
 const manifest = JSON.parse(readFileSync(new URL('../gigacode-extension.json', import.meta.url), 'utf8'));
 const versions = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 
 /** Действия spec_forge. Ответ — текст или `error`: вызов не удался (isError). */
-const actions = {
-  status,
-  check,
-  /** @returns {import('./status.mjs').Answer} */
-  link: () => ({ error: texts.notImplemented('link') })
-};
+const actions = { status, check, link };
 
 /** @param {unknown} value @returns {Record<string, unknown>} */
 function object(value) {

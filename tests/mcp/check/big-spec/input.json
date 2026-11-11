@@ -1,0 +1,5 @@
+{
+  "when": "в spec.md 10 001 буква и цифра: предупреждение, но проверки пройдены и одобрить можно",
+  "refs": ["core/design.md: Проверки"],
+  "call": { "action": "check", "task": "order-search" }
+}

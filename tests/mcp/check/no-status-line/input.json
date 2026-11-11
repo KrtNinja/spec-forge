@@ -1,0 +1,5 @@
+{
+  "when": "в spec.md нет строки статуса: строка в блоке кода не считается",
+  "refs": ["core/design.md: Документы задачи", "core/design.md: Проверки"],
+  "call": { "action": "check", "task": "order-search" }
+}

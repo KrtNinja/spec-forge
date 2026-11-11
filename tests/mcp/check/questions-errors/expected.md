@@ -12,6 +12,7 @@
 - `docs/order-search/questions.md`, `Q-04` — «Статус»: `закрыт` не подходит, допустимо `открыт`, `решён`, `не входит`
 - `docs/order-search/questions.md`, `Q-04` — нет записи `D-07`
 - `docs/order-search/questions.md`, `Q-06` — не заполнено «Статус»
+- `docs/order-search/questions.md`, `Q-06` — нет записи `FR-02`
 - `docs/order-search/questions.md`, `Q-07` — «Блокирует» повторяется
 - `docs/order-search/questions.md`, `Q-08` — «Статус» повторяется
 
