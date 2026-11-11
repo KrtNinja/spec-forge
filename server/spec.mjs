@@ -37,7 +37,8 @@ function today() {
 export function approvalOf(text) {
   const found = statusLines(text);
   if (found.length !== 1) return { approved: '', actual: '' };
-  return { approved: approvedPattern.exec(found[0].line)?.[2] ?? '', actual: sum(text, found[0].row) };
+  const match = approvedPattern.exec(found[0].line);
+  return { approved: match ? match[2] : '', actual: sum(text, found[0].row) };
 }
 
 /** Одобрена ли задача: в spec.md одна строка статуса, и это строка одобрения. Сумма не сверяется. @param {string} text */

@@ -25,7 +25,10 @@ const external = /^[a-z][a-z\d+.-]*:/i;
 const recordAnchor = /^(?:fr|d|q)-\d+$/i;
 
 /** Номер записи в тексте ссылки без обратных апострофов; текст другой — пусто. @param {string} text */
-export const linkNumber = (text) => numberText.exec(text)?.[2] ?? '';
+export function linkNumber(text) {
+  const match = numberText.exec(text);
+  return match ? match[2] : '';
+}
 
 /**
  * Файл от корня проекта и якорь, куда ведёт адрес из документа doc. Без файла — сам документ.
