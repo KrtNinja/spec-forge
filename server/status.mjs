@@ -29,8 +29,8 @@ export function status({ command, task }) {
 /** @param {string} task */
 const hasSpec = (task) => existsSync(taskFile(task, 'spec.md'));
 
-/** Задача одобрена: в spec.md строка одобрения. @param {string} task */
-const approved = (task) => hasSpec(task) && isApproved(readText(taskFile(task, 'spec.md')));
+/** Задача одобрена: в spec.md строка одобрения; нет spec.md — не одобрена. @param {string} task */
+const approved = (task) => isApproved(readText(taskFile(task, 'spec.md')));
 
 /** Задача не названа: для sf-grill подходят задачи без spec.md. @returns {Answer} */
 function choose() {
