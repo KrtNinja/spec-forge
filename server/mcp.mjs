@@ -2,7 +2,8 @@
 import { readFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { check } from './check.mjs';
-import { texts, tool } from './contract.mjs';
+import { tool } from './contract.mjs';
+import { texts } from './texts.mjs';
 import { Unreadable } from './docs.mjs';
 import { link } from './link.mjs';
 import { status } from './status.mjs';

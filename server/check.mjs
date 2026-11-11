@@ -6,8 +6,9 @@
 import { existsSync } from 'node:fs';
 import {
   blockingValues, brainstormingHeadings, contextHeadings, decisionField, questionFields, questionStatuses, replacedField,
-  requirementFields, sourcesHeading, specHeadings, texts, tool
+  requirementFields, sourcesHeading, specHeadings, tool
 } from './contract.mjs';
+import { texts } from './texts.mjs';
 import { headings, listedSources, readText, taskFile, taskProblem } from './docs.mjs';
 import { linkErrors } from './links.mjs';
 import { field, fieldValues, numbersIn, recordNumber } from './records.mjs';

@@ -3,7 +3,7 @@
 // Адрес — от папки документа. Внешние адреса (со схемой) в тупик не ведут; ссылка на запись с ним — неверная.
 import { existsSync } from 'node:fs';
 import { posix } from 'node:path';
-import { texts } from './contract.mjs';
+import { texts } from './texts.mjs';
 import { docsWithKinds, homeOf, recordCount } from './task.mjs';
 
 /** @typedef {import('./task.mjs').Scope} Scope */

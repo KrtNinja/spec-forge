@@ -1,0 +1,5 @@
+{
+  "when": "/sf-review, проверки ИИ не было, spec.md в этой сессии не трогали: проверить здесь, даже если отдельный агент есть",
+  "refs": ["FR-17", "sf-review/design.md: Проверка и разбор замечаний"],
+  "call": { "action": "status", "command": "sf-review", "task": "order-search", "touched": false, "agent": true }
+}

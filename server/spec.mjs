@@ -1,7 +1,8 @@
 // @ts-check
 // spec.md: строка статуса, сумма одобрения, размер и абзацы ответа check после строки номеров.
 import { createHash } from 'node:crypto';
-import { approvedPattern, approvedStatus, draftStatus, specLimit, statusPrefix, texts } from './contract.mjs';
+import { approvedPattern, approvedStatus, draftStatus, specLimit, statusPrefix } from './contract.mjs';
+import { texts } from './texts.mjs';
 import { scan, textLines } from './docs.mjs';
 import { openQuestions } from './task.mjs';
 

@@ -1,0 +1,5 @@
+{
+  "when": "/sf-review: замечание отложено, вопрос по нему открыт — повторить проверку или разобрать вопросы, ответ через sf-note",
+  "refs": ["FR-19", "FR-21", "FR-24", "core/design.md: Состояние и переходы"],
+  "call": { "action": "status", "command": "sf-review", "task": "order-search", "touched": true, "agent": false }
+}

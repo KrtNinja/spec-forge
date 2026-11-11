@@ -1,0 +1,5 @@
+{
+  "when": "/sf-review без задачи: неодобренный spec.md один — проверка этой задачи; контекст чистый — здесь",
+  "refs": ["FR-17", "FR-23", "sf-review/design.md: Проверка и разбор замечаний"],
+  "call": { "action": "status", "command": "sf-review", "touched": false, "agent": false }
+}

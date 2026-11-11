@@ -3,7 +3,8 @@
 // блокирующие вопросы, переход к требованиям, состояние требований и одобрения.
 // Для sf-grill и sf-spec; sf-review и sf-note — в следующих блоках.
 import { existsSync } from 'node:fs';
-import { failedHeading, sourcesHeading, studiedHeading, texts, tool } from './contract.mjs';
+import { failedHeading, sourcesHeading, studiedHeading, tool } from './contract.mjs';
+import { texts } from './texts.mjs';
 import { inspect } from './check.mjs';
 import {
   blocks, isTask, listedSources, mentionedKeys, readText, section, sourceKey, taskFile, tasks, validName

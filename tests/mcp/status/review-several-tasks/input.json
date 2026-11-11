@@ -1,0 +1,5 @@
+{
+  "when": "/sf-review без задачи: неодобренных spec.md несколько — выбрать; задача без spec.md не предлагается",
+  "refs": ["FR-23", "core/design.md: Вход в работу и выбор задачи"],
+  "call": { "action": "status", "command": "sf-review", "touched": true, "agent": true }
+}

@@ -3,7 +3,7 @@
 // ссылки с номером записи, которые ведут не на неё, исправляются. Заголовки, блоки кода и строки до первого
 // заголовка не меняются. Сначала читаются все документы, затем пишутся только изменившиеся.
 import { writeFileSync } from 'node:fs';
-import { texts } from './contract.mjs';
+import { texts } from './texts.mjs';
 import { taskProblem } from './docs.mjs';
 import { codeOrLink, leadsTo, linkNumber, recordTarget } from './links.mjs';
 import { mentionPattern } from './records.mjs';

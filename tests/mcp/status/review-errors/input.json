@@ -1,0 +1,5 @@
+{
+  "when": "/sf-review: ошибка оформления только в review.md — сначала исправить",
+  "refs": ["FR-25", "core/design.md: Состояние и переходы"],
+  "call": { "action": "status", "command": "sf-review", "task": "order-search", "touched": false, "agent": false }
+}
