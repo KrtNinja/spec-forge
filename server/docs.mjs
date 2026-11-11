@@ -45,6 +45,12 @@ export function isTask(name) {
   return validName.test(name) && existsSync(taskFile(name, 'brainstorming.md'));
 }
 
+/** Задача для `check` и `link`: не указана или её нет — текст ошибки, иначе пусто. @param {string} task */
+export function taskProblem(task) {
+  if (task === '') return texts.noTask;
+  return isTask(task) ? '' : texts.unknownTask(task);
+}
+
 /** Имена всех задач по алфавиту; нет `docs/` — задач нет. */
 export function tasks() {
   return existsSync('docs') && statSync('docs').isDirectory() ? readdirSync('docs').filter(isTask).sort() : [];
@@ -53,36 +59,53 @@ export function tasks() {
 /** Ограда блока кода: ``` или ~~~ не короче трёх знаков, отступ до трёх пробелов. */
 const fenceOpen = /^ {0,3}(`{3,}|~{3,})/;
 
-/** Раздел документа: заголовок целиком и строки под ним. @typedef {{ heading: string, lines: string[] }} Block */
+/** Строки документа без переводов строк: номер строки в документе — номер в этом списке. @param {string} text */
+export const textLines = (text) => text.split(/\r?\n/);
+
+/**
+ * Строки документа по порядку и признак: внутри блока кода, вместе с оградами, или нет.
+ * Блоки кода не разбираются: заголовки, источники, номера записей и строка статуса в примерах не настоящие.
+ * @param {string} text
+ */
+export function scan(text) {
+  // Закрывающая строка открытого блока кода; нет — вне блока.
+  /** @type {RegExp | undefined} */
+  let closing;
+  return textLines(text).map((line) => {
+    const code = closing !== undefined || fenceOpen.test(line);
+    if (closing) {
+      if (closing.test(line)) closing = undefined;
+    } else if (code) {
+      // Закрывает строка только из знаков ограды — тех же и не меньше, отступ до трёх пробелов.
+      const fence = line.trim().replace(/[^`~].*$/, '');
+      closing = new RegExp(`^ {0,3}${fence}[${fence}]*\\s*$`);
+    }
+    return { line, code };
+  });
+}
+
+/**
+ * Раздел документа: заголовок целиком, строки под ним и их номера в документе.
+ * @typedef {{ heading: string, lines: string[], rows: number[] }} Block
+ */
 
 /**
  * Разделы документа по порядку: заголовок любого уровня и строки до следующего заголовка.
- * Строки до первого заголовка ни к одному разделу не относятся. Блоки кода в оградах пропускаются
- * целиком: заголовки, источники и номера записей в примерах не настоящие.
+ * Строки до первого заголовка ни к одному разделу не относятся, блоки кода пропускаются целиком.
  * @param {string} text
  */
 export function blocks(text) {
   /** @type {Block[]} */
   const result = [];
-  /** @type {string[]} */
-  let lines = [];
-  // Закрывающая строка открытого блока кода; нет — вне блока.
-  /** @type {RegExp | undefined} */
-  let closing;
-  for (const line of text.split(/\r?\n/)) {
-    if (closing) {
-      if (closing.test(line)) closing = undefined;
-    } else if (fenceOpen.test(line)) {
-      // Закрывает строка только из знаков ограды — тех же и не меньше, отступ до трёх пробелов.
-      const fence = line.trim().replace(/[^`~].*$/, '');
-      closing = new RegExp(`^ {0,3}${fence}[${fence}]*\\s*$`);
-    } else if (/^#{1,6} /.test(line)) {
-      lines = [];
-      result.push({ heading: line.trimEnd(), lines });
-    } else {
-      lines.push(line);
+  scan(text).forEach(({ line, code }, row) => {
+    const current = result.at(-1);
+    if (code) return;
+    if (/^#{1,6} /.test(line)) result.push({ heading: line.trimEnd(), lines: [], rows: [] });
+    else if (current) {
+      current.lines.push(line);
+      current.rows.push(row);
     }
-  }
+  });
   return result;
 }
 
