@@ -1,0 +1,5 @@
+{
+  "when": "/sf-review после повторной проверки без замечаний: прежнее отложенное блокирующее больше не мешает — повторить проверку здесь или одобрить, без рекомендации",
+  "refs": ["FR-19", "FR-20", "FR-21", "core/design.md: Состояние и переходы"],
+  "call": { "action": "status", "command": "sf-review", "task": "order-search", "touched": false, "agent": false }
+}

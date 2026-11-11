@@ -66,9 +66,12 @@ export const texts = {
     + '— и `agent` — можешь ли поручить работу отдельному агенту.',
   /** @param {string} command */
   commandNotImplemented: (command) => `Для ${code(command)} действие \`status\` пока не реализовано.`,
-  /** Одобренный spec.md изменился или открыт вопрос: эти переходы — вместе с sf-note. @param {string} task */
-  stageNotImplemented: (task) => `Требования задачи ${code(task)} одобрены, но затем изменились или открыт вопрос: `
-    + 'определение этапа для этого пока не реализовано.',
+  /**
+   * Одобренный spec.md изменился, открыт вопрос или в последнем разделе review.md блокирующее замечание без решения
+   * либо отложенное: эти переходы — вместе с sf-note. @param {string} task
+   */
+  stageNotImplemented: (task) => `Требования задачи ${code(task)} одобрены, но затем изменились, открыт вопрос `
+    + 'или есть блокирующее замечание проверки: определение этапа для этого пока не реализовано.',
   noTask: 'Укажите задачу: имя папки в `docs/`.',
   /** @param {string} task */
   unknownTask: (task) => `Задачи ${code(task)} нет: не найден ${code(`docs/${task}/brainstorming.md`)}.`,
@@ -175,7 +178,7 @@ export const texts = {
    */
   specReady: (task, questions) => `${ready(`Задача ${code(task)}: требования в \`spec.md\`, проверки пройдены.`, questions, [])}\n\n`
     + `Дальше: предложить ${choice('«Проверить требования» (рекомендуется)', reviewCommand(task), task, questions, [])}`,
-  /** Одобрено, сумма совпадает, открытых вопросов нет. @param {string} task */
+  /** Одобрено, сумма совпадает, препятствий одобрению нет. @param {string} task */
   specApproved: (task) => `Задача ${code(task)}: требования одобрены, работа завершена.\n\nНовые сведения — ${code(`/sf-note ${task}`)}.`,
 
   // status: проверка требований. Для sf-review подходит задача со spec.md, ещё не одобренная. Строки замечаний и

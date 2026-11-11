@@ -70,7 +70,7 @@ export const remarkFields = { importance: 'Важность', place: 'Где', p
 /** Допустимые значения «Важности». */
 export const remarkImportance = { blocking: 'блокирует', note: 'замечание' };
 
-/** Допустимые значения «Решения» (FR-19). Отложенное замечание называет вопрос `Q-…` в questions.md. */
+/** Допустимые значения «Решения» (FR-19). Номер отложенного замечания упомянут хотя бы в одном вопросе `Q-…` в questions.md. */
 export const remarkDecisions = { accepted: 'принято', own: 'своё решение', postponed: 'отложено', rejected: 'отклонено' };
 
 export const tool = {
