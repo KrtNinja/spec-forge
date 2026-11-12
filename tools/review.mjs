@@ -1,9 +1,11 @@
 // @ts-check
-// Факты для ревью изменений: объём контекста модели и ссылки случаев на требования.
-// Только читает репозиторий и печатает отчёт. Запуск: node tools/review.mjs [основание], по умолчанию main.
-// Сравнивается общий предок основания и текущей версии с файлами в рабочей папке.
+// Помощник ревью изменений. Только читает репозиторий и печатает отчёт.
+//   node tools/review.mjs facts [основание] — объём контекста модели и ссылки случаев на требования;
+//     сравнивается общий предок основания (по умолчанию main) и текущей версии с файлами в рабочей папке.
+//   node tools/review.mjs quotes <файл отчёта> — стоят ли цитаты отчёта ревью в названных строках файлов.
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 const rules = 'rules/spec-forge.md';
 const casesDir = 'tests/mcp';
@@ -29,8 +31,8 @@ function baseCommit(name) {
   return commit;
 }
 
-process.chdir(git(['rev-parse', '--show-toplevel']).trim());
-const base = baseCommit(process.argv[2] ?? 'main');
+/** Коммит, с которым сравнивает facts. */
+let base = '';
 
 /** Файл в основании; нет файла — пустая строка. @param {string} path */
 function before(path) {
@@ -39,7 +41,7 @@ function before(path) {
 
 /** Файл в рабочей папке; нет файла — пустая строка. @param {string} path */
 function now(path) {
-  return existsSync(path) ? readFileSync(path, 'utf8') : '';
+  return existsSync(path) && statSync(path).isFile() ? readFileSync(path, 'utf8') : '';
 }
 
 /** Буквы и цифры — та же мера, что в пределе для правил и скиллов. @param {string} text */
@@ -135,4 +137,56 @@ function references() {
   ];
 }
 
-console.log([`# Факты для ревью: основание ${base.slice(0, 7)}`, '', ...context(), '', ...references()].join('\n'));
+/** @param {string} name */
+function facts(name) {
+  base = baseCommit(name);
+  console.log([`# Факты для ревью: основание ${base.slice(0, 7)}`, '', ...context(), '', ...references()].join('\n'));
+}
+
+/** Пробелы подряд — один пробел, по краям — нет: отступы и выравнивание цитате не мешают. @param {string} text */
+function squeeze(text) {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+/** Места отчёта: строка с `путь:строка`, сразу под ней — цитата после «> ». @param {string} report */
+function places(report) {
+  const lines = report.split('\n');
+  return lines.flatMap((line, index) => {
+    const place = /`([^`\s]+):(\d+)`/.exec(line);
+    const quote = /^\s*> ?(.*)$/.exec(lines[index + 1] ?? '');
+    return place && quote ? [{ path: place[1], line: Number(place[2]), quote: squeeze(quote[1]) }] : [];
+  });
+}
+
+/** Что не так с местом; пустая строка — цитата стоит в названной строке. @param {ReturnType<typeof places>[number]} place */
+function mismatch({ path, line, quote }) {
+  if (!existsSync(path) || !statSync(path).isFile()) return 'файла нет';
+  if (!quote) return 'цитата пустая';
+  const lines = now(path).split('\n').map(squeeze);
+  if ((lines[line - 1] ?? '').includes(quote)) return '';
+  const found = lines.findIndex((text) => text.includes(quote));
+  return found === -1 ? 'цитаты нет в файле' : `цитата стоит в строке ${found + 1}`;
+}
+
+/** @param {string} file */
+function quotes(file) {
+  if (!existsSync(file) || !statSync(file).isFile()) throw new Error(`Нет файла отчёта: ${file}`);
+  const all = places(readFileSync(file, 'utf8'));
+  const wrong = all.map((place) => ({ ...place, problem: mismatch(place) })).filter((place) => place.problem);
+  console.log([
+    `Мест с цитатами: ${all.length}, расхождений: ${wrong.length}.`,
+    ...wrong.map((place) => `- \`${place.path}:${place.line}\` — ${place.problem}: ${place.quote}`)
+  ].join('\n'));
+  if (all.length === 0 || wrong.length > 0) process.exitCode = 1;
+}
+
+const [command, argument] = process.argv.slice(2);
+// Путь отчёта задан от папки запуска; файлы из отчёта и репозиторий читаются от корня.
+const reportFile = resolve(argument ?? '');
+process.chdir(git(['rev-parse', '--show-toplevel']).trim());
+
+switch (command) {
+  case 'facts': facts(argument ?? 'main'); break;
+  case 'quotes': quotes(reportFile); break;
+  default: throw new Error(`Неизвестная команда: ${command}. Есть facts и quotes.`);
+}

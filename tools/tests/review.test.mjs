@@ -30,7 +30,7 @@ function input(when, refs) {
  * Отчёт для репозитория: коммит с файлами основания, затем файлы изменения.
  * @param {Record<string, string>} old @param {Record<string, string>} changed @param {string[]} [args]
  */
-function review(old, changed, args = ['HEAD']) {
+function review(old, changed, args = ['facts', 'HEAD']) {
   const cwd = mkdtempSync(join(tmpdir(), 'spec-forge-review-'));
   try {
     git(cwd, ['init', '-q']);
@@ -102,7 +102,52 @@ test('Без изменений и без ошибок каждый список
 });
 
 test('Неизвестное основание — ошибка, а не пустой отчёт', () => {
-  const result = review({}, {}, ['no-such-branch']);
+  const result = review({}, {}, ['facts', 'no-such-branch']);
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Не найдено основание сравнения: no-such-branch/);
+});
+
+/** Сверка цитат отчёта с файлом кода из трёх строк. @param {string} report */
+function quotes(report) {
+  return review({ 'server/check.mjs': 'первая\n  if (a  ===  b) return;\nтретья\n' }, { 'report.md': report }, ['quotes', 'report.md']);
+}
+
+test('Цитаты: фрагмент названной строки найден, отступы и пробелы подряд не мешают', () => {
+  const result = quotes('1. Замечание.\n   - `server/check.mjs:2`\n     > if (a === b) return;\n');
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.equal(result.stdout, 'Мест с цитатами: 1, расхождений: 0.\n');
+});
+
+test('Цитаты: другая строка, отсутствующая цитата, отсутствующий файл и пустая цитата названы', () => {
+  const result = quotes([
+    '- `server/check.mjs:1`', '  > третья',
+    '- `server/check.mjs:3`', '  > такого текста нет',
+    '- `server/none.mjs:1`', '  > первая',
+    '- `server/check.mjs:2`', '  >',
+    '- `server/check.mjs:1`', '  > первая'
+  ].join('\n'));
+  assert.equal(result.status, 1);
+  assert.equal(result.stdout, [
+    'Мест с цитатами: 5, расхождений: 4.',
+    '- `server/check.mjs:1` — цитата стоит в строке 3: третья',
+    '- `server/check.mjs:3` — цитаты нет в файле: такого текста нет',
+    '- `server/none.mjs:1` — файла нет: первая',
+    '- `server/check.mjs:2` — цитата пустая: ',
+    ''
+  ].join('\n'));
+});
+
+test('Цитаты: место без цитаты под ним не проверяется, отчёт без цитат — ошибка', () => {
+  const result = quotes('Смотри `server/check.mjs:2` и текст дальше.\n\n> не под местом\n');
+  assert.equal(result.status, 1);
+  assert.equal(result.stdout, 'Мест с цитатами: 0, расхождений: 0.\n');
+});
+
+test('Нет файла отчёта и неизвестная команда — ошибка', () => {
+  const missing = review({}, {}, ['quotes', 'none.md']);
+  assert.notEqual(missing.status, 0);
+  assert.match(missing.stderr, /Нет файла отчёта: .*none\.md/);
+  const unknown = review({}, {}, ['HEAD']);
+  assert.notEqual(unknown.status, 0);
+  assert.match(unknown.stderr, /Неизвестная команда: HEAD\. Есть facts и quotes\./);
 });
