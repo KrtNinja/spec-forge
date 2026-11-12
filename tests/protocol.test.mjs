@@ -5,7 +5,7 @@
 // сервер сам завершается с кодом 0 не дольше чем за 2 секунды.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { chmodSync, cpSync, mkdtempSync, openSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { exchange, handshake, message, root } from './server.mjs';
@@ -107,3 +107,58 @@ test('строка не JSON: ошибка -32700 без номера запро
 test('без запросов сервер молча завершается', async () => {
   assert.deepEqual(await run([]), []);
 });
+
+// FR-25, FR-28; core/design.md: Детерминированный инструмент, Ответ инструмента.
+// Linux, обычный пользователь: настоящий EACCES при записи, без подмены файловых функций.
+// Случай numbers задаёт ожидаемые ссылки и CRLF; ответы ошибки ниже заданы независимо от texts.
+const linkCase = join(root, 'tests/mcp/link/numbers');
+const linkFiles = ['brainstorming.md', 'questions.md', 'spec.md'];
+
+/** @param {string} cwd @param {string[]} written */
+function assertLinkFiles(cwd, written) {
+  for (const file of linkFiles) {
+    const path = join('docs/order-search', file);
+    const expected = join(linkCase, written.includes(file) ? 'after' : 'before', path);
+    assert.deepEqual(readFileSync(join(cwd, path)), readFileSync(expected), path);
+  }
+}
+
+for (const denied of ['brainstorming.md', 'spec.md']) {
+  test(`link: ошибка записи ${denied}, ping и повтор после восстановления прав в том же процессе`, async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'spec-forge-write-'));
+    const path = join(cwd, 'docs/order-search', denied);
+    const written = denied === 'spec.md' ? ['brainstorming.md', 'questions.md'] : [];
+    const prior = denied === 'spec.md'
+      ? 'До ошибки записаны: `docs/order-search/brainstorming.md`, `docs/order-search/questions.md`.'
+      : 'До ошибки ни один файл не записан.';
+    const error = `Не удалось записать \`docs/order-search/${denied}\`. Работа со ссылками остановлена.\n\n`
+      + `${prior}\n\nПроверьте указанный файл и возможность записи, затем повторите \`link\`.`;
+    const call = { name: 'spec_forge', arguments: { action: 'link', task: 'order-search' } };
+    try {
+      cpSync(join(linkCase, 'before'), cwd, { recursive: true });
+      chmodSync(path, 0o444);
+      assertLinkFiles(cwd, []); // чтение доступно, содержимое ещё не менялось
+      assert.throws(() => openSync(path, 'r+'), { code: 'EACCES' }, 'нужен реальный запрет записи; запускать без root');
+      const replies = await exchange(cwd, [
+        message('tools/call', call, 1), message('ping', {}, 2),
+        message('tools/call', call, 3), message('tools/call', call, 4)
+      ], (index) => {
+        if (index !== 2) return;
+        assertLinkFiles(cwd, written); // первый ответ и ping получены, повтор ещё не отправлен
+        chmodSync(path, 0o644);
+      });
+      assert.deepEqual(replies, [
+        { jsonrpc: '2.0', id: 1, result: { content: [{ type: 'text', text: error }], isError: true } },
+        { jsonrpc: '2.0', id: 2, result: {} },
+        { jsonrpc: '2.0', id: 3, result: {
+          content: [{ type: 'text', text: `Ссылок проставлено: ${denied === 'spec.md' ? 5 : 13}, исправлено: 0.` }], isError: false
+        } },
+        { jsonrpc: '2.0', id: 4, result: { content: [{ type: 'text', text: 'Ссылок проставлено: 0, исправлено: 0.' }], isError: false } }
+      ]);
+      assertLinkFiles(cwd, linkFiles); // итог совпадает с успешным link, включая CRLF
+    } finally {
+      chmodSync(path, 0o644);
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+}

@@ -32,9 +32,17 @@ export function link({ task }) {
   const scope = scopeOf(readDocs(task));
   /** @type {Tally} */
   const tally = { added: 0, fixed: 0, notes: [] };
+  /** @type {string[]} */
+  const written = [];
   for (const [doc, kind] of docsWithKinds(scope)) {
     const text = relink(doc, kind, scope, tally);
-    if (text !== doc.text) writeFileSync(doc.path, text);
+    if (text === doc.text) continue;
+    try {
+      writeFileSync(doc.path, text);
+    } catch {
+      return { error: texts.linkWriteFailed(doc.path, written) };
+    }
+    written.push(doc.path);
   }
   const notes = [...new Set(tally.notes)];
   return [texts.linked(tally.added, tally.fixed), ...(notes.length === 0 ? [] : [texts.notLinked(notes)])].join('\n\n');
