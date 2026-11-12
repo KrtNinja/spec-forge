@@ -12,7 +12,7 @@ import {
 import { texts } from './texts.mjs';
 import { headings, listedSources, readText, taskFile, taskProblem } from './docs.mjs';
 import { linkErrors } from './links.mjs';
-import { field, fieldValues, kindOf, numbersIn, recordNumber } from './records.mjs';
+import { extraFields, field, fieldValues, kindOf, numbersIn, recordNumber } from './records.mjs';
 import { specNotes, statusErrors } from './spec.mjs';
 import { dependentsOf, nextNumbers, placeOf, readDocs, scopeOf, withHeading } from './task.mjs';
 
@@ -170,14 +170,17 @@ const fieldsOf = {
 };
 
 /**
- * Поля в порядке образца, затем связь с brainstorming.md. Статус повторяется — как недопустимый.
+ * Поля в порядке образца, поля не из образца, затем связь с brainstorming.md. Статус повторяется — как недопустимый.
  * @param {Entry} entry @param {Scope} scope
  */
 function questionErrors(entry, scope) {
-  const state = field(entry.lines, status);
+  const { file, number, lines } = entry;
+  const names = Object.values(questionFields);
+  const state = field(lines, status);
   return [
-    ...fieldsErrors(entry, Object.values(questionFields), required.get(state) || [status]),
-    ...decisionLinkErrors(entry.file, entry.number, state, scope)
+    ...fieldsErrors(entry, names, required.get(state) || [status]),
+    ...extraFields(lines, names).map((name) => texts.unknownField(file, number, name)),
+    ...decisionLinkErrors(file, number, state, scope)
   ];
 }
 

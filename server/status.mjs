@@ -22,8 +22,9 @@ import { openQuestions, remarksOf } from './task.mjs';
  * @typedef {{ text: string, tail: string[] }} Way
  */
 /**
- * Как команда предлагает проверку: строка, пока проверки ИИ не было, и путь у варианта «Повторить проверку».
- * @typedef {{ start: (open: string[]) => string, way: Way }} Offer
+ * Как команда предлагает проверку: строка, когда проверку уже выбрали, — по открытым вопросам и препятствиям
+ * из замечаний; путь у варианта «Повторить проверку»; again — после разобранной проверки снова эта строка.
+ * @typedef {{ start: (open: string[], hindering: string[]) => string, way: Way, again: boolean }} Offer
  */
 
 const commands = tool.inputSchema.properties.command.enum;
@@ -99,7 +100,8 @@ function specStage(task) {
  */
 const specOffer = (task) => ({
   start: (open) => texts.specReady(task, open),
-  way: { text: texts.reviewCommand(task), tail: [] }
+  way: { text: texts.reviewCommand(task), tail: [] },
+  again: false
 });
 
 /**
@@ -132,14 +134,15 @@ function approvedStage(task, open, hindering, { approved, actual }) {
 
 /**
  * Строка с путём проверки: проверки ИИ не было — начало проверки; иначе по последнему разделу review.md —
- * замечания без решения или всё разобрано. Отложенные блокирующие замечания мешают одобрению (FR-19, FR-20).
+ * замечания без решения или всё разобрано: тогда снова начало проверки, если команда так предлагает (again),
+ * иначе выбор «Повторить проверку» или «Одобрить». Отложенные блокирующие замечания мешают одобрению (FR-19, FR-20).
  * @param {string} task @param {boolean} reviewed @param {Offer} offer @param {string[]} open открытые вопросы
  * @param {ReturnType<typeof remarksOf>} remarks
  */
 function reviewStep(task, reviewed, offer, open, { undecided, hindering }) {
-  if (!reviewed) return offer.start(open);
+  if (!reviewed) return offer.start(open, hindering);
   if (undecided.length > 0) return texts.remarksOpen(task, undecided, offer.way.text, open, hindering);
-  return texts.reviewDone(task, offer.way.text, open, hindering);
+  return offer.again ? offer.start(open, hindering) : texts.reviewDone(task, offer.way.text, open, hindering);
 }
 
 /**
@@ -163,12 +166,13 @@ function chooseReview(flags) {
 }
 
 /**
- * sf-review: пока проверки не было — проверить по пути: проверку пользователь уже выбрал.
+ * sf-review: проверку пользователь уже выбрал — проверить по пути, пока проверки не было, а при touched — нет
+ * и после разобранной проверки: команду для чистой сессии дал сам status, выбор не повторяется.
  * @param {string} task @param {Flags} flags @returns {Offer}
  */
 function reviewOffer(task, flags) {
   const way = wayOf(task, flags);
-  return { start: () => texts.reviewStart(task, way.text), way };
+  return { start: (open, hindering) => texts.reviewStart(task, way.text, open, hindering), way, again: !flags.touched };
 }
 
 /** Задача не названа: для sf-note подходит любая задача, включая одобренные. @returns {Answer} */

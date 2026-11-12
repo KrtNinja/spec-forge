@@ -76,6 +76,26 @@ export function fieldValues(lines, name) {
   return lines.filter((line) => line.startsWith(prefix)).map((line) => line.slice(prefix.length).trim());
 }
 
+/** Пункт «- Имя: значение»: за двоеточием пробел или конец строки; `- https://…` полем не считается. */
+const fieldItem = /^- ([^:]+):(?: |$)/;
+
+/**
+ * Имена полей не из образца, без повторов: пункты «- Имя: значение» после первого поля образца.
+ * Пункты до первого поля — текст записи, например «- Вариант: …»; полей образца нет — пусто.
+ * @param {string[]} lines @param {string[]} names поля образца
+ */
+export function extraFields(lines, names) {
+  let fields = false;
+  /** @type {string[]} */
+  const found = [];
+  for (const line of lines) {
+    fields = fields || names.some((name) => line.startsWith(`- ${name}:`));
+    const item = fieldItem.exec(line);
+    if (fields && item !== null && !names.includes(item[1])) found.push(item[1]);
+  }
+  return [...new Set(found)];
+}
+
 /**
  * Значение поля; поля нет или оно повторяется — пусто: у повторённого поля значения нет.
  * @param {string[]} lines @param {string} name
