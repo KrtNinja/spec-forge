@@ -1,11 +1,12 @@
 // @ts-check
 // Действие link: номера D, Q, FR и R в brainstorming.md, questions.md, spec.md и _work/review.md становятся
-// ссылками на свои записи, ссылки с номером записи, которые ведут не на неё, исправляются. Заголовки, блоки кода
-// и строки до первого заголовка не меняются. Сначала читаются все документы, затем пишутся только изменившиеся.
+// ссылками на свои записи, ссылки с номером записи, которые ведут не на неё, исправляются, якорь записи заглавными
+// в других ссылках становится строчными. Заголовки, блоки кода и строки до первого заголовка не меняются.
+// Сначала читаются все документы, затем пишутся только изменившиеся.
 import { writeFileSync } from 'node:fs';
 import { texts } from './texts.mjs';
 import { taskProblem } from './docs.mjs';
-import { codeOrLink, leadsTo, linkNumber, recordTarget } from './links.mjs';
+import { codeOrLink, leadsTo, linkNumber, lowerAnchor, recordTarget } from './links.mjs';
 import { mentionPattern, numberPattern } from './records.mjs';
 import { docsWithKinds, placeOf, readDocs, recordCount, scopeOf } from './task.mjs';
 
@@ -14,8 +15,8 @@ import { docsWithKinds, placeOf, readDocs, recordCount, scopeOf } from './task.m
 /** Счёт правок и места неоднозначных номеров. @typedef {{ added: number, fixed: number, notes: string[] }} Tally */
 
 /**
- * Кусок строки по порядку: код в обратных апострофах, ссылка Markdown, адрес http(s) или номер записи в тексте.
- * Код и адрес не меняются, кроме кода, в котором только номер.
+ * Кусок строки по порядку: кусок из codeOrLink, адрес http(s) или номер записи в тексте. Меняются номер в тексте,
+ * код в одном апострофе, в котором только номер, и ссылка; картинка, другие куски из codeOrLink и адрес — нет.
  */
 const piece = new RegExp(`${codeOrLink}|https?://[^\\s)>\\]]+|${mentionPattern}`, 'gu');
 
@@ -58,7 +59,8 @@ function relink(doc, kind, scope, tally) {
   for (const block of doc.blocks) {
     const place = placeOf(scope, kind, block);
     block.rows.forEach((row) => {
-      parts[2 * row] = parts[2 * row].replace(piece, (match, text, target) => rewrite({ scope, doc, place, tally }, match, text, target));
+      // Последний аргумент замены — именованные группы куска.
+      parts[2 * row] = parts[2 * row].replace(piece, (match, ...rest) => rewrite({ scope, doc, place, tally }, match, rest.at(-1)));
     });
   }
   return parts.join('');
@@ -76,14 +78,19 @@ function pieceNumber(match, text, target) {
 }
 
 /**
- * Кусок строки после правки. Номер, которого нет, не меняется — его покажет check; номер у нескольких
- * записей не меняется и попадает в «Не исправлено».
+ * Кусок строки после правки. Картинка не меняется. В ссылке с текстом не номером меняется только якорь записи
+ * заглавными. Номер, которого нет, не меняется — его покажет check; номер у нескольких записей не меняется
+ * и попадает в «Не исправлено».
  * @param {{ scope: Scope, doc: Doc, place: string, tally: Tally }} at
- * @param {string} match кусок целиком @param {string | undefined} text текст ссылки @param {string | undefined} target адрес ссылки
+ * @param {string} match кусок целиком @param {Partial<import('./links.mjs').Link>} groups группы куска
  */
-function rewrite(at, match, text, target) {
+function rewrite(at, match, { image, text, target }) {
+  if (image) return match;
   const number = pieceNumber(match, text, target);
-  const count = number === '' ? 0 : recordCount(at.scope, number);
+  if (number === '') {
+    return target === undefined ? match : retarget(at.tally, match, text, lowerAnchor(at.scope, at.doc.path, target));
+  }
+  const count = recordCount(at.scope, number);
   if (count === 0) return match;
   if (count > 1) {
     at.tally.notes.push(texts.ambiguousNumber(at.doc.path, at.place, number));
@@ -94,7 +101,15 @@ function rewrite(at, match, text, target) {
     at.tally.added += 1;
     return `[${match}](${address})`;
   }
-  if (leadsTo(at.scope, at.doc.path, target, number)) return match;
-  at.tally.fixed += 1;
+  return retarget(at.tally, match, text, leadsTo(at.scope, at.doc.path, target, number) ? '' : address);
+}
+
+/**
+ * Ссылка с исправленным адресом, правка входит в «исправлено»; адреса нет — ссылка не меняется.
+ * @param {Tally} tally @param {string} match ссылка целиком @param {string | undefined} text @param {string} address
+ */
+function retarget(tally, match, text, address) {
+  if (address === '') return match;
+  tally.fixed += 1;
   return `[${text}](${address})`;
 }

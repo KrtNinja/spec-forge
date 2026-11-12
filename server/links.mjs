@@ -8,12 +8,24 @@ import { numberPattern } from './records.mjs';
 import { docsWithKinds, homeOf, recordCount } from './task.mjs';
 
 /** @typedef {import('./task.mjs').Scope} Scope */
+/**
+ * Ссылка `[текст](адрес)` или картинка `![текст](адрес)`: `!` картинки (у ссылки пусто), текст и адрес.
+ * @typedef {{ image: string, text: string, target: string }} Link
+ */
 
 /**
- * Код в обратных апострофах или ссылка Markdown `[текст](адрес)` с текстом и адресом в группах.
- * Ссылка внутри кода — пример, а не ссылка.
+ * Кусок строки, который читается целиком: код в обратных апострофах (закрывается столькими же апострофами),
+ * ссылка-сноска `[текст][метка]`, строка адреса сноски `[метка]: адрес`, ссылка или картинка с группами Link,
+ * ссылка или картинка с подсказкой после адреса. Номер внутри куска — не упоминание, ссылка внутри кода — пример.
+ * Проверяются и меняются только ссылки и картинки с группами. Разбирается одна строка.
  */
-export const codeOrLink = '`[^`\\n]*`|\\[([^\\]\\n]*)\\]\\(([^)\\s]*)\\)';
+export const codeOrLink = [
+  '(?<ticks>`+)[^\\n]*?(?<!`)\\k<ticks>(?!`)',
+  '\\[[^\\]\\n]*\\]\\[[^\\]\\n]*\\]',
+  '^\\[[^\\]\\n]+\\]:.*',
+  '(?<image>!?)\\[(?<text>[^\\]\\n]*)\\]\\((?<target>[^)\\s]*)\\)',
+  '!?\\[[^\\]\\n]*\\]\\([^)\\n]*\\)'
+].join('|');
 const markdownLink = new RegExp(codeOrLink, 'g');
 
 /** Текст ссылки — номер записи, можно в обратных апострофах. */
@@ -54,30 +66,57 @@ export function leadsTo(scope, doc, target, number) {
 }
 
 /**
+ * Номер записи, на которую ведёт якорь записи в документе задачи, без учёта регистра: `#D-07` — `D-07`.
+ * Такой записи в документе нет — пусто. Файл не документ задачи или якорь не якорь записи — undefined: не проверяется.
+ * @param {Scope} scope @param {{ file: string, anchor: string }} address @returns {string | undefined}
+ */
+function anchoredNumber(scope, { file, anchor }) {
+  const home = docsWithKinds(scope).find(([item]) => item.path === file);
+  if (home === undefined || !recordAnchor.test(anchor)) return undefined;
+  return scope.numbers[home[1]].find((number) => number.toLowerCase() === anchor.toLowerCase()) ?? '';
+}
+
+/**
  * Ссылка в тупик: файла нет или якорь записи не ведёт на запись этого документа задачи.
  * Внешние адреса, якоря заголовков и якоря в других файлах не проверяются.
  * @param {Scope} scope @param {string} doc @param {string} target
  */
 function isDead(scope, doc, target) {
   if (external.test(target)) return false;
-  const { file, anchor } = resolve(doc, target);
-  if (!existsSync(file)) return true;
-  const home = docsWithKinds(scope).find(([item]) => item.path === file);
-  if (home === undefined || !recordAnchor.test(anchor)) return false;
-  return !scope.numbers[home[1]].some((number) => number.toLowerCase() === anchor);
+  const address = resolve(doc, target);
+  return !existsSync(address.file) || anchoredNumber(scope, address) === '';
 }
 
 /**
- * Ошибки ссылок Markdown в строках: ссылка с номером записи ведёт не на неё, другая ссылка — в тупик.
- * Номер, которого нет, здесь не показывается: его покажет «нет записи».
+ * Адрес с якорем записи строчными, если якорь записан заглавными, а запись есть в файле адреса:
+ * `brainstorming.md#D-01` — `brainstorming.md#d-01`. Иначе пусто — адрес не меняется.
+ * @param {Scope} scope @param {string} doc @param {string} target
+ */
+export function lowerAnchor(scope, doc, target) {
+  const address = resolve(doc, target);
+  const number = anchoredNumber(scope, address);
+  if (!number || address.anchor === number.toLowerCase()) return '';
+  return `${target.slice(0, -address.anchor.length)}${number.toLowerCase()}`;
+}
+
+/** Ссылки и картинки в строках по порядку, без других кусков. @param {string[]} lines @returns {Link[]} */
+const linksIn = (lines) => lines.flatMap((line) => [...line.matchAll(markdownLink)])
+  .flatMap(({ groups }) => (groups?.target === undefined ? [] : [/** @type {Link} */ (groups)]));
+
+/**
+ * Ошибки ссылок Markdown в строках: ссылка с номером записи ведёт не на неё, другая ссылка — в тупик или с якорем
+ * записи заглавными. Номер, которого нет, здесь не показывается: его покажет «нет записи». Картинка — ссылка на файл:
+ * номер в подписи не делает её ссылкой на запись, а якорь в ней `link` не меняет.
  * @param {Scope} scope @param {string} doc путь документа @param {string} place @param {string[]} lines
  */
 export function linkErrors(scope, doc, place, lines) {
-  const links = lines.flatMap((line) => [...line.matchAll(markdownLink)]).filter((match) => match[2] !== undefined);
-  return links.flatMap(([, text, target]) => {
-    const number = linkNumber(text);
-    if (number === '') return isDead(scope, doc, target) ? [texts.deadLink(doc, place, target)] : [];
-    return recordCount(scope, number) === 0 || leadsTo(scope, doc, target, number)
-      ? [] : [texts.wrongLink(doc, place, number, target)];
+  return linksIn(lines).flatMap(({ image, text, target }) => {
+    const number = image ? '' : linkNumber(text);
+    if (number !== '') {
+      return recordCount(scope, number) === 0 || leadsTo(scope, doc, target, number)
+        ? [] : [texts.wrongLink(doc, place, number, target)];
+    }
+    if (isDead(scope, doc, target)) return [texts.deadLink(doc, place, target)];
+    return !image && lowerAnchor(scope, doc, target) !== '' ? [texts.anchorCase(doc, place, target)] : [];
   });
 }
