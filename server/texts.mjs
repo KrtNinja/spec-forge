@@ -36,10 +36,13 @@ const where = (file, place) => (place.startsWith('#') ? `${code(file)}, «${plac
 const reviewCommand = (task) => code(`/sf-review ${task}`);
 
 /** Что мешает одобрению; хоть один список не пуст. @param {string[]} questions открытые @param {string[]} remarks блокирующие замечания */
-const blocked = (questions, remarks) => `Одобрить нельзя — ${[
+const obstacles = (questions, remarks) => [
   ...(questions.length === 0 ? [] : [`открытые вопросы: ${codes(questions)}`]),
   ...(remarks.length === 0 ? [] : [`блокирующие замечания: ${codes(remarks)}`])
-].join('; ')}.`;
+].join('; ');
+
+/** @param {string[]} questions @param {string[]} remarks */
+const blocked = (questions, remarks) => `Одобрить нельзя — ${obstacles(questions, remarks)}.`;
 
 /** Состояние и препятствия одобрению, если они есть. @param {string} state @param {string[]} questions @param {string[]} remarks */
 const ready = (state, questions, remarks) => (questions.length + remarks.length === 0 ? state : `${state} ${blocked(questions, remarks)}`);
@@ -64,14 +67,8 @@ export const texts = {
   /** sf-review без обоих признаков пути проверки; не логическое значение — как нет признака. */
   noReviewFlags: 'Для `sf-review` укажите `touched` — готовил, правил или проверял ли ты `spec.md` этой задачи в этой сессии, '
     + '— и `agent` — можешь ли поручить работу отдельному агенту.',
-  /** @param {string} command */
-  commandNotImplemented: (command) => `Для ${code(command)} действие \`status\` пока не реализовано.`,
-  /**
-   * Одобренный spec.md изменился, открыт вопрос или в последнем разделе review.md блокирующее замечание без решения
-   * либо отложенное: эти переходы — вместе с sf-note. @param {string} task
-   */
-  stageNotImplemented: (task) => `Требования задачи ${code(task)} одобрены, но затем изменились, открыт вопрос `
-    + 'или есть блокирующее замечание проверки: определение этапа для этого пока не реализовано.',
+  /** Для check поле affected есть, но это не список. */
+  badAffected: 'Укажите `affected` списком номеров решений и вопросов, например `["D-03", "Q-02"]`.',
   noTask: 'Укажите задачу: имя папки в `docs/`.',
   /** @param {string} task */
   unknownTask: (task) => `Задачи ${code(task)} нет: не найден ${code(`docs/${task}/brainstorming.md`)}.`,
@@ -178,8 +175,25 @@ export const texts = {
    */
   specReady: (task, questions) => `${ready(`Задача ${code(task)}: требования в \`spec.md\`, проверки пройдены.`, questions, [])}\n\n`
     + `Дальше: предложить ${choice('«Проверить требования» (рекомендуется)', reviewCommand(task), task, questions, [])}`,
+
+  // status: одобренная задача. Все команды отвечают одинаково.
+
   /** Одобрено, сумма совпадает, препятствий одобрению нет. @param {string} task */
   specApproved: (task) => `Задача ${code(task)}: требования одобрены, работа завершена.\n\nНовые сведения — ${code(`/sf-note ${task}`)}.`,
+  /** Одобрено, но открыты вопросы или блокирующие замечания мешают. @param {string} task @param {string[]} questions @param {string[]} remarks */
+  approvedHindered: (task, questions, remarks) => `Задача ${code(task)}: требования одобрены, но одобрение не подтверждено — `
+    + `${obstacles(questions, remarks)}.\n\nДальше: ответ или решение — через ${code(`/sf-note ${task}`)}. `
+    + `Меняет смысл требований — поставить «${draftStatus}», поправить \`spec.md\` и одобрить заново.`,
+  /** Одобрено, но сумма не совпадает: одобрение не действует, что бы ни изменилось (FR-24). @param {string} task */
+  approvedChanged: (task) => `Задача ${code(task)}: \`spec.md\` изменён после одобрения — одобрение не действует.\n\n`
+    + `Дальше: поставить «${draftStatus}» — нужно повторное одобрение.`,
+
+  // status: sf-note. Подходит любая задача, включая одобренные; ответ — как у команды этапа задачи.
+
+  noTasks: 'Задач нет.\n\nДальше: начать новую задачу — `/sf-grill` с описанием идеи.',
+  /** @param {string[]} tasks */
+  chooseAnyTask: (tasks) => `Задач несколько:\n\n${list(tasks.map(code))}\n\n`
+    + 'Дальше: выбрать ту, к которой относятся сведения, затем `status` с её именем.',
 
   // status: проверка требований. Для sf-review подходит задача со spec.md, ещё не одобренная. Строки замечаний и
   // после проверки — одинаковые для sf-spec и sf-review, различается путь проверки: у sf-spec — команда, у sf-review —
@@ -306,10 +320,20 @@ export const texts = {
    * @param {string} spec @param {string} questions нет questions.md — пусто
    */
   approved: (spec, questions) => `Документ с требованиями одобрен: ${fileLink(spec)}.`
-    + (questions === '' ? '' : `\n\nВопросы и ответы: ${fileLink(questions)}.`),
-  /** Одобрено, но сумма не совпадает. Сравнение с одобренной версией — вместе с sf-note. @param {string} file */
-  changedAfterApproval: (file) => `${code(file)} изменён после одобрения: сумма не совпадает. `
-    + 'Сравнение с одобренной версией пока не реализовано.',
+    + (questions === '' ? '' : `\n\nВопросы и ответы: ${fileLink(questions)}.`)
+    + `\n\nДальше: предложить закоммитить папку задачи ${code(spec.slice(0, spec.lastIndexOf('/') + 1))}.`,
+  /** Одобрено, но сумма не совпадает: одобрение не действует, что бы ни изменилось (FR-24). @param {string} file */
+  changedAfterApproval: (file) => `${code(file)} изменён после одобрения: сумма не совпадает, одобрение не действует. `
+    + `Поставить «${draftStatus}» — нужно повторное одобрение.`,
+
+  // check с affected: после строки номеров, по пункту на номер в порядке вызова, без повторов.
+
+  /** @param {string[]} lines */
+  dependents: (lines) => `**Зависящие требования**\n\n${list(lines)}`,
+  /** FR, у которых решение в «Основании»; для вопроса — через решения, которые его упоминают. @param {string} number @param {string[]} requirements */
+  dependsOn: (number, requirements) => `${code(number)} — ${requirements.length === 0 ? 'требований нет' : codes(requirements)}`,
+  /** Значение — не номер решения или вопроса задачи; не строка — в записи JSON. @param {string} value */
+  notAffectable: (value) => `${code(value)} — нет решения или вопроса с таким номером`,
 
   // link. Номера D, Q, FR и R в brainstorming.md, questions.md, spec.md и _work/review.md.
 

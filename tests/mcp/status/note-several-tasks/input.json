@@ -1,0 +1,5 @@
+{
+  "when": "/sf-note без задачи, задач несколько, одна из них одобрена: sf-note подходит любая задача, папка без brainstorming.md — не задача",
+  "refs": ["FR-23", "FR-24", "core/design.md: Вход в работу и выбор задачи"],
+  "call": { "action": "status", "command": "sf-note" }
+}

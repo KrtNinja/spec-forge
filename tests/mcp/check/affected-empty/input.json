@@ -1,0 +1,5 @@
+{
+  "when": "check с пустым списком затронутых записей: ответ как без него",
+  "refs": ["FR-24", "core/design.md: Ответ инструмента"],
+  "call": { "action": "check", "task": "order-search", "affected": [] }
+}
