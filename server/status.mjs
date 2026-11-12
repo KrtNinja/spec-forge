@@ -44,8 +44,11 @@ export function status({ command, task, touched, agent }) {
 /** @param {string} task */
 const hasSpec = (task) => existsSync(taskFile(task, 'spec.md'));
 
-/** Задача одобрена: в spec.md строка одобрения; нет spec.md — не одобрена. @param {string} task */
-const approved = (task) => isApproved(readText(taskFile(task, 'spec.md')));
+/** Строка одобрения есть и её сумма совпадает с содержимым spec.md. @param {string} task */
+function hasCurrentApproval(task) {
+  const { approved, actual } = approvalOf(readText(taskFile(task, 'spec.md')));
+  return approved !== '' && approved === actual;
+}
 
 /** Задача не названа: для sf-grill подходят задачи без spec.md. @returns {Answer} */
 function choose() {
@@ -64,14 +67,14 @@ function named(name) {
   if (/\p{Script=Cyrillic}/u.test(name)) return texts.cyrillicName(name);
   if (!validName.test(name)) return texts.badName(name);
   if (!isTask(name)) return existsSync(`docs/${name}`) ? texts.folderTaken(name) : texts.newTask(name);
-  if (approved(name)) return requirements(name);
+  if (isApproved(readText(taskFile(name, 'spec.md')))) return requirements(name);
   if (hasSpec(name)) return [texts.discussionDone(name), texts.tip(`/sf-spec ${name}`)].join('\n\n');
   return discussion(name, []);
 }
 
 /** Задача не названа: для sf-spec подходят задачи, ещё не одобренные. @returns {Answer} */
 function chooseSpec() {
-  const open = tasks().filter((name) => !approved(name));
+  const open = tasks().filter((name) => !hasCurrentApproval(name));
   if (open.length === 0) return texts.noSpecTasks;
   return open.length > 1 ? texts.chooseSpecTask(open) : specStage(open[0]);
 }
@@ -160,7 +163,7 @@ function review(task, flags) {
 
 /** Задача не названа: для sf-review подходят задачи со spec.md, ещё не одобренные. @param {Flags} flags @returns {Answer} */
 function chooseReview(flags) {
-  const open = tasks().filter((name) => hasSpec(name) && !approved(name));
+  const open = tasks().filter((name) => hasSpec(name) && !hasCurrentApproval(name));
   if (open.length === 0) return texts.noReviewTasks;
   return open.length > 1 ? texts.chooseReviewTask(open) : requirements(open[0], reviewOffer(open[0], flags));
 }
