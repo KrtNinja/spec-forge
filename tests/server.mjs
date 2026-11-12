@@ -99,7 +99,7 @@ async function until(ready, problem) {
  * @returns {Promise<any[]>} все сообщения сервера
  */
 export async function exchange(cwd, lines) {
-  if (!existsSync(server)) throw new Error('Нет server/mcp.mjs: сервер ещё не реализован или тесты запущены не из корня репозитория.');
+  if (!existsSync(server)) throw new Error('Нет server/mcp.mjs: тесты запущены не из корня репозитория.');
   const child = spawn(process.execPath, [server], { cwd });
   let stdout = '';
   let stderr = '';
