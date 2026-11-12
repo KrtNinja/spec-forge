@@ -1,5 +1,5 @@
 {
-  "when": "spec.md одобрен, сумма совпадает: сообщение об одобрении со ссылками Markdown на spec.md и questions.md",
+  "when": "spec.md одобрен, сумма совпадает: сообщение об одобрении со ссылками Markdown на spec.md и questions.md и предложение закоммитить папку задачи",
   "refs": ["FR-21", "FR-22", "core/design.md: Состояние и переходы"],
   "call": { "action": "check", "task": "order-search" }
 }

@@ -3,11 +3,11 @@
 // Q — в questions.md, FR — в spec.md, R — в _work/review.md; все четыре документа читаются сразу,
 // до любых проверок и правок.
 import { existsSync } from 'node:fs';
-import { outOfScopeHeading, replacedField, sourcesHeading } from './contract.mjs';
+import { outOfScopeHeading, replacedField, requirementFields, sourcesHeading } from './contract.mjs';
 import { blocks, part, readText, taskFile } from './docs.mjs';
 import {
-  decisionBlocks, fieldValues, headingNumbers, hindersApproval, isBlockingRemark, isOpen, kindOf, latestRemarks, nextNumber,
-  numbersIn, questionBlocks, recordNumber, remarkBlocks, remarkDecision, requirementBlocks
+  decisionBlocks, field, fieldValues, headingNumbers, hindersApproval, isBlockingRemark, isOpen, kindOf, latestRemarks,
+  nextNumber, numbersIn, questionBlocks, recordNumber, remarkBlocks, remarkDecision, requirementBlocks
 } from './records.mjs';
 
 /** @typedef {import('./docs.mjs').Block} Block */
@@ -108,6 +108,28 @@ export function remarksOf(scope) {
     blocking: headingNumbers(undecided.filter(isBlockingRemark)),
     hindering: headingNumbers(latest.filter(hindersApproval))
   };
+}
+
+/**
+ * Решения, через которые от записи зависят требования: у решения — оно само, у вопроса — решения, которые
+ * упоминают его в любом поле, в том числе текстом ссылки. Цепочки «Заменено» не разворачиваются.
+ * @param {Scope} scope @param {string} number номер решения или вопроса задачи
+ */
+function decisionsOf(scope, number) {
+  if (scope.numbers.D.includes(number)) return [number];
+  return headingNumbers(scope.records.D.filter((block) => numbersIn(block.lines).includes(number)));
+}
+
+/**
+ * Требования, зависящие от решения или вопроса, по порядку записей: в «Основании» — одно из его решений,
+ * в том числе ссылкой; упоминание в тексте требования не считается. Не решение и не вопрос задачи — undefined.
+ * @param {Scope} scope @param {string} number
+ */
+export function dependentsOf(scope, number) {
+  if (!scope.numbers.D.includes(number) && !scope.numbers.Q.includes(number)) return undefined;
+  const decisions = decisionsOf(scope, number);
+  return headingNumbers(scope.records.FR.filter((block) => numbersIn([field(block.lines, requirementFields.basis)])
+    .some((item) => decisions.includes(item))));
 }
 
 /** Следующие свободные номера: D, Q, а если есть spec.md — FR, если есть _work/review.md — R. @param {Scope} scope */

@@ -1,0 +1,5 @@
+{
+  "when": "/sf-grill для одобренной задачи, а spec.md изменился: ответ тот же, что у других команд",
+  "refs": ["FR-24", "core/design.md: Вход в работу и выбор задачи", "core/design.md: Состояние и переходы"],
+  "call": { "action": "status", "command": "sf-grill", "task": "order-search" }
+}

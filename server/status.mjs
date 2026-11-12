@@ -1,7 +1,7 @@
 // @ts-check
 // Действие status: выбор задачи, имя новой папки, источники и задание на их изучение,
 // блокирующие вопросы, переход к требованиям, путь проверки, замечания проверки, состояние требований и одобрения.
-// Для sf-grill, sf-spec и sf-review; sf-note — в следующем блоке.
+// Для sf-grill, sf-spec, sf-review и sf-note; sf-note отвечает как команда этапа задачи.
 import { existsSync } from 'node:fs';
 import { failedHeading, sourcesHeading, studiedHeading, tool } from './contract.mjs';
 import { texts } from './texts.mjs';
@@ -37,7 +37,7 @@ export function status({ command, task, touched, agent }) {
   if (command === 'sf-grill') return task === '' ? choose() : named(task);
   if (command === 'sf-spec') return task === '' ? chooseSpec() : namedSpec(task);
   if (command === 'sf-review') return review(task, { touched, agent });
-  return { error: texts.commandNotImplemented(command) };
+  return task === '' ? chooseNote() : namedNote(task);
 }
 
 /** @param {string} task */
@@ -103,9 +103,8 @@ const specOffer = (task) => ({
 });
 
 /**
- * Требования в spec.md: ошибки проверки — исправить; одобрено — завершено, если сумма совпадает, вопросов нет
- * и последний раздел проверки одобрению не мешает; блокирующие замечания без решения — разбор по одному;
- * иначе шаг с путём проверки, затем задание или строка Tip этого пути.
+ * Требования в spec.md: ошибки проверки — исправить; одобрено — строка одобренной задачи; блокирующие замечания
+ * без решения — разбор по одному; иначе шаг с путём проверки, затем задание или строка Tip этого пути.
  * @param {string} task @param {Offer} offer @returns {Answer}
  */
 function requirements(task, offer = specOffer(task)) {
@@ -114,12 +113,21 @@ function requirements(task, offer = specOffer(task)) {
   const open = openQuestions(scope);
   const remarks = remarksOf(scope);
   const sums = approvalOf(scope.docs.spec.text);
-  if (sums.approved !== '') {
-    const stuck = open.length > 0 || remarks.hindering.length > 0 || sums.approved !== sums.actual;
-    return stuck ? { error: texts.stageNotImplemented(task) } : texts.specApproved(task);
-  }
+  if (sums.approved !== '') return approvedStage(task, open, remarks.hindering, sums);
   if (remarks.blocking.length > 0) return texts.remarksBlocking(task, remarks.blocking);
   return [reviewStep(task, scope.docs.review.exists, offer, open, remarks), ...offer.way.tail].join('\n\n');
+}
+
+/**
+ * Одобренная задача: все команды отвечают одинаково, без строки Tip. Препятствия — в порядке таблицы переходов:
+ * блокирующие замечания последнего раздела проверки без решения или отложенные, открытые вопросы, затем сумма.
+ * @param {string} task @param {string[]} open открытые вопросы @param {string[]} hindering блокирующие замечания
+ * @param {ReturnType<typeof approvalOf>} sums
+ */
+function approvedStage(task, open, hindering, { approved, actual }) {
+  if (hindering.length > 0) return texts.approvedRemarks(task, hindering);
+  if (open.length > 0) return texts.approvedQuestions(task, open);
+  return approved === actual ? texts.specApproved(task) : texts.approvedChanged(task);
 }
 
 /**
@@ -161,6 +169,27 @@ function chooseReview(flags) {
 function reviewOffer(task, flags) {
   const way = wayOf(task, flags);
   return { start: () => texts.reviewStart(task, way.text), way };
+}
+
+/** Задача не названа: для sf-note подходит любая задача, включая одобренные. @returns {Answer} */
+function chooseNote() {
+  const all = tasks();
+  if (all.length === 0) return texts.noTasks;
+  return all.length > 1 ? texts.chooseAnyTask(all) : noteStage(all[0]);
+}
+
+/** Задача названа: sf-note новую задачу не начинает. @param {string} name @returns {Answer} */
+function namedNote(name) {
+  return isTask(name) ? noteStage(name) : texts.noSuchTask(name);
+}
+
+/**
+ * sf-note отвечает как команда этапа задачи: со spec.md — как sf-spec, без него — как sf-grill,
+ * но без строки о другой задаче: её начинает только sf-grill.
+ * @param {string} task @returns {Answer}
+ */
+function noteStage(task) {
+  return hasSpec(task) ? requirements(task) : discussion(task, []);
 }
 
 /**

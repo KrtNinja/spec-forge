@@ -1,0 +1,5 @@
+{
+  "when": "/sf-note с задачей, у которой готов неодобренный spec.md: ответ как у sf-spec — проверить требования (рекомендуется) или одобрить",
+  "refs": ["FR-16", "FR-24", "sf-note/design.md: Вход"],
+  "call": { "action": "status", "command": "sf-note", "task": "order-search" }
+}
