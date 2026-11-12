@@ -1,21 +1,27 @@
 // @ts-check
-// Записи D, Q и FR: номер в заголовке, поля «- Поле: значение», упоминания номеров в тексте.
+// Записи D, Q, FR и R: номер в заголовке, поля «- Поле: значение», упоминания номеров в тексте.
 // Решения D — подразделы «Решений» brainstorming.md, вопросы Q — разделы questions.md, кроме первого уровня,
-// требования FR — подразделы «Требований» spec.md.
-import { blockingValues, decisionsHeading, questionFields, questionStatuses, requirementsHeading } from './contract.mjs';
+// требования FR — подразделы «Требований» spec.md, замечания R — разделы _work/review.md третьего уровня и ниже.
+import {
+  blockingValues, decisionsHeading, questionFields, questionStatuses, remarkDecisions, remarkFields, remarkImportance,
+  requirementsHeading
+} from './contract.mjs';
 import { level, part } from './docs.mjs';
 
 /** @typedef {import('./docs.mjs').Block} Block */
-/** Вид записи: решение, вопрос или требование. @typedef {'D' | 'Q' | 'FR'} Kind */
+/** Вид записи: решение, вопрос, требование или замечание проверки. @typedef {'D' | 'Q' | 'FR' | 'R'} Kind */
 
 /** Номер: две цифры и больше, без лишних нулей впереди. */
 const digits = '(?:0[1-9]|[1-9]\\d+)';
 
+/** Номер записи любого вида: вид, дефис и цифры. */
+export const numberPattern = '(?:FR|[DQR])-\\d+';
+
 /**
- * Упоминание номера D, Q или FR — не часть слова, пути или имени файла: `docs/D-07.md`, `D-07-api.md`
+ * Упоминание номера записи — не часть слова, пути или имени файла: `docs/D-07.md`, `D-07-api.md`
  * и `D-07/api.md` номером не считаются, а `D-07.` в конце предложения и `` `D-07` `` — считаются.
  */
-export const mentionPattern = '(?<![\\p{L}\\p{N}_./\\\\-])(?:FR|[DQ])-\\d+(?![\\p{L}\\p{N}_/\\\\-]|\\.[\\p{L}\\p{N}_])';
+export const mentionPattern = `(?<![\\p{L}\\p{N}_./\\\\-])${numberPattern}(?![\\p{L}\\p{N}_/\\\\-]|\\.[\\p{L}\\p{N}_])`;
 const mention = new RegExp(mentionPattern, 'gu');
 
 /** Адрес ссылки Markdown и адрес http(s) в тексте: в них номер — часть пути, а не упоминание. */
@@ -38,6 +44,19 @@ export function requirementBlocks(list) {
   return part(list, requirementsHeading).filter((block) => block.heading !== requirementsHeading);
 }
 
+/** Записи-замечания: разделы с любыми заголовками третьего уровня и ниже. @param {Block[]} list разделы _work/review.md */
+export function remarkBlocks(list) {
+  return list.filter((block) => level(block.heading) > 2);
+}
+
+/**
+ * Замечания последнего раздела проверки: каждый заголовок первого или второго уровня начинает раздел заново,
+ * а без таких заголовков раздел — весь файл. @param {Block[]} list разделы _work/review.md
+ */
+export function latestRemarks(list) {
+  return list.reduce((latest, block) => (level(block.heading) < 3 ? [] : [...latest, block]), /** @type {Block[]} */ ([]));
+}
+
 /** Номер записи по заголовку вида `### D-07`; заголовок другой — пусто. @param {Block} block @param {Kind} kind */
 export function recordNumber(block, kind) {
   return new RegExp(`^### ${kind}-${digits}$`).test(block.heading) ? block.heading.slice(4) : '';
@@ -46,7 +65,7 @@ export function recordNumber(block, kind) {
 /** Вид записи по номеру: `FR-01` — `FR`. @param {string} number */
 export const kindOf = (number) => /** @type {Kind} */ (number.slice(0, number.indexOf('-')));
 
-/** Упомянутые в строках номера D, Q и FR по порядку, без повторов. @param {string[]} lines */
+/** Упомянутые в строках номера записей по порядку, без повторов. @param {string[]} lines */
 export function numbersIn(lines) {
   return [...new Set(lines.join('\n').replace(address, ' ').match(mention))];
 }
@@ -81,8 +100,20 @@ export function isBlocking(block) {
   return isOpen(block) && field(block.lines, questionFields.blocking) !== notBlocking;
 }
 
-/** Номера вопросов по заголовкам, в порядке записей. @param {Block[]} list */
-export const questionNumbers = (list) => list.map((block) => block.heading.replace(/^#+ /, ''));
+/** Замечание блокирует: «Важность: блокирует». @param {Block} block */
+export const isBlockingRemark = (block) => field(block.lines, remarkFields.importance) === remarkImportance.blocking;
+
+/** Решение по замечанию; поля нет, оно пустое или повторяется — пусто: замечание не разобрано. @param {Block} block */
+export const remarkDecision = (block) => field(block.lines, remarkFields.decision);
+
+/** Решения, при которых блокирующее замечание мешает одобрению: решения нет или оно отложено (FR-19). */
+const hindering = ['', remarkDecisions.postponed];
+
+/** Блокирующее замечание мешает одобрению: без решения или отложено. @param {Block} block */
+export const hindersApproval = (block) => isBlockingRemark(block) && hindering.includes(remarkDecision(block));
+
+/** Номера записей по заголовкам, в порядке записей. @param {Block[]} list */
+export const headingNumbers = (list) => list.map((block) => block.heading.replace(/^#+ /, ''));
 
 /** Следующий свободный номер: наибольший плюс один; записей нет — первый. @param {Kind} kind @param {string[]} numbers */
 export function nextNumber(kind, numbers) {

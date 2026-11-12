@@ -26,6 +26,9 @@ function object(value) {
 /** Строковое поле вызова; другого типа — пусто. @param {unknown} value */
 const field = (value) => (typeof value === 'string' ? value : '');
 
+/** Признак вызова — логическое значение; другого типа, например строка «да», — признака нет. @param {unknown} value */
+const flag = (value) => (typeof value === 'boolean' ? value : undefined);
+
 /** Значение для текста ответа; не строка — в записи JSON. @param {unknown} value */
 const shown = (value) => (typeof value === 'string' ? value : String(JSON.stringify(value)));
 
@@ -56,7 +59,9 @@ function answer(text, isError) {
 function callTool(params) {
   if (params.name !== tool.name) return failure(-32602, texts.unknownTool(shown(params.name)));
   const args = object(params.arguments);
-  const call = { action: field(args.action), command: field(args.command), task: field(args.task) };
+  const call = {
+    action: field(args.action), command: field(args.command), task: field(args.task), touched: flag(args.touched), agent: flag(args.agent)
+  };
   if (!tool.inputSchema.properties.action.enum.includes(call.action)) return answer(texts.noAction, true);
   try {
     const result = actions[/** @type {keyof typeof actions} */ (call.action)](call);
