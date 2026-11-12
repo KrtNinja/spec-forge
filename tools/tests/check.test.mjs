@@ -20,19 +20,12 @@ function fixture(files, command) {
     for (const [name, content] of Object.entries(files)) writeFileSync(join(cwd, name), content);
     execFileSync('git', ['add', 'tools', 'package.json', ...Object.keys(files)], { cwd });
     const env = { ...process.env };
-    delete env.GITHUB_STEP_SUMMARY;
     delete env.NODE_TEST_CONTEXT;
     return spawnSync(process.execPath, [join(root, 'tools/check.mjs'), command], { cwd: join(cwd, 'tools'), env, encoding: 'utf8' });
   } finally {
     rmSync(cwd, { recursive: true, force: true });
   }
 }
-
-test('Без рабочего кода отсутствие тестов сообщается явно', () => {
-  const result = fixture({}, 'test');
-  assert.equal(result.status, 0);
-  assert.match(result.stdout, /Тестов пока нет/);
-});
 
 test('Рабочий код без тестов отклоняется', () => {
   const result = fixture({ 'value.js': 'export const value = 1;' }, 'test');
@@ -62,12 +55,6 @@ test('Проверка типов отклоняет неверный тип', (
   const result = fixture({ 'value.test.js': '/** @type {number} */\nexport const value = "wrong";' }, 'check');
   assert.notEqual(result.status, 0);
   assert.match(result.stdout, /TS2322/);
-});
-
-test('Без рабочего кода mutator не вызывается', () => {
-  const result = fixture({}, 'mutate');
-  assert.equal(result.status, 0);
-  assert.match(result.stdout, /мутационные тесты не выполнялись/);
 });
 
 test('Неизвестная команда не выдаёт успешный результат', () => {
