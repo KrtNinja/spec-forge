@@ -15,6 +15,8 @@
 - `docs/order-search/spec.md`, `FR-05` — нет записи `D-09`
 - `docs/order-search/spec.md`, `FR-06` — ссылка `protocol.md` ведёт в тупик
 - `docs/order-search/spec.md`, `FR-06` — ссылка `brainstorming.md#d-07` ведёт в тупик
+- `docs/order-search/spec.md`, `FR-06` — в ссылке `brainstorming.md#D-01` якорь записи заглавными: исправит `link`
+- `docs/order-search/spec.md`, `FR-06` — ссылка `схема.png` ведёт в тупик
 - `docs/order-search/spec.md`, `FR-06` — ссылка `D-01` ведёт на `questions.md#d-01`, а не на свою запись: исправит `link`
 
 Следующие номера: `D-04`, `Q-02`, `FR-08`.

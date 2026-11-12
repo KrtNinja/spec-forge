@@ -52,7 +52,7 @@
 
 Ссылки в требовании.
 
-- Пример: [протокол](protocol.md), [решение](brainstorming.md#d-07)
+- Пример: [протокол](protocol.md), [решение](brainstorming.md#d-07), [схему](brainstorming.md#D-01), ![D-01](схема.png)
 - Основание: [D-01](questions.md#d-01)
 
 ## Требования
