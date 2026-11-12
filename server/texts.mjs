@@ -36,13 +36,10 @@ const where = (file, place) => (place.startsWith('#') ? `${code(file)}, «${plac
 const reviewCommand = (task) => code(`/sf-review ${task}`);
 
 /** Что мешает одобрению; хоть один список не пуст. @param {string[]} questions открытые @param {string[]} remarks блокирующие замечания */
-const obstacles = (questions, remarks) => [
+const blocked = (questions, remarks) => `Одобрить нельзя — ${[
   ...(questions.length === 0 ? [] : [`открытые вопросы: ${codes(questions)}`]),
   ...(remarks.length === 0 ? [] : [`блокирующие замечания: ${codes(remarks)}`])
-].join('; ');
-
-/** @param {string[]} questions @param {string[]} remarks */
-const blocked = (questions, remarks) => `Одобрить нельзя — ${obstacles(questions, remarks)}.`;
+].join('; ')}.`;
 
 /** Состояние и препятствия одобрению, если они есть. @param {string} state @param {string[]} questions @param {string[]} remarks */
 const ready = (state, questions, remarks) => (questions.length + remarks.length === 0 ? state : `${state} ${blocked(questions, remarks)}`);
@@ -180,9 +177,13 @@ export const texts = {
 
   /** Одобрено, сумма совпадает, препятствий одобрению нет. @param {string} task */
   specApproved: (task) => `Задача ${code(task)}: требования одобрены, работа завершена.\n\nНовые сведения — ${code(`/sf-note ${task}`)}.`,
-  /** Одобрено, но открыты вопросы или блокирующие замечания мешают. @param {string} task @param {string[]} questions @param {string[]} remarks */
-  approvedHindered: (task, questions, remarks) => `Задача ${code(task)}: требования одобрены, но одобрение не подтверждено — `
-    + `${obstacles(questions, remarks)}.\n\nДальше: ответ или решение — через ${code(`/sf-note ${task}`)}. `
+  /** Одобрено, но мешают блокирующие замечания последнего раздела review.md; раньше вопросов. @param {string} task @param {string[]} remarks */
+  approvedRemarks: (task, remarks) => `Задача ${code(task)}: требования одобрены, но в последней проверке блокирующие замечания: `
+    + `${codes(remarks)} — одобрение не действует.\n\n`
+    + `Дальше: поставить «${draftStatus}» и продолжить с замечаниями — ${reviewCommand(task)}.`,
+  /** Одобрено, но открыты вопросы. @param {string} task @param {string[]} questions */
+  approvedQuestions: (task, questions) => `Задача ${code(task)}: требования одобрены, но одобрение не подтверждено — `
+    + `открытые вопросы: ${codes(questions)}.\n\nДальше: ответ — через ${code(`/sf-note ${task}`)}. `
     + `Меняет смысл требований — поставить «${draftStatus}», поправить \`spec.md\` и одобрить заново.`,
   /** Одобрено, но сумма не совпадает: одобрение не действует, что бы ни изменилось (FR-24). @param {string} task */
   approvedChanged: (task) => `Задача ${code(task)}: \`spec.md\` изменён после одобрения — одобрение не действует.\n\n`
