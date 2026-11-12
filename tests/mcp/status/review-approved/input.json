@@ -1,0 +1,5 @@
+{
+  "when": "/sf-review для одобренной задачи, а в последнем разделе review.md блокирующее замечание без решения: одобрение не подтверждается, как при открытом вопросе — переход вместе с sf-note",
+  "refs": ["FR-22", "core/design.md: Состояние и переходы"],
+  "call": { "action": "status", "command": "sf-review", "task": "order-search", "touched": true, "agent": true }
+}

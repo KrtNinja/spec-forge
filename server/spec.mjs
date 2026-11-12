@@ -1,9 +1,10 @@
 // @ts-check
 // spec.md: строка статуса, сумма одобрения, размер и абзацы ответа check после строки номеров.
 import { createHash } from 'node:crypto';
-import { approvedPattern, approvedStatus, draftStatus, specLimit, statusPrefix, texts } from './contract.mjs';
+import { approvedPattern, approvedStatus, draftStatus, specLimit, statusPrefix } from './contract.mjs';
+import { texts } from './texts.mjs';
 import { scan, textLines } from './docs.mjs';
-import { openQuestions } from './task.mjs';
+import { openQuestions, remarksOf } from './task.mjs';
 
 /** @typedef {import('./task.mjs').Scope} Scope */
 
@@ -66,14 +67,16 @@ export function specNotes(scope, clean) {
 }
 
 /**
- * Ошибок нет: открытые вопросы — раньше всего, затем готовая строка одобрения для черновика,
+ * Ошибок нет: препятствия одобрению — открытые вопросы и блокирующие замечания последнего раздела проверки
+ * без решения или отложенные — раньше всего, затем готовая строка одобрения для черновика,
  * для одобренного — сообщение об одобрении или «сумма не совпадает».
  * @param {Scope} scope
  */
 function approvalNote(scope) {
   const { spec, questions } = scope.docs;
   const open = openQuestions(scope);
-  if (open.length > 0) return texts.approvalBlocked(open);
+  const { hindering } = remarksOf(scope);
+  if (open.length > 0 || hindering.length > 0) return texts.approvalBlocked(open, hindering);
   const { approved, actual } = approvalOf(spec.text);
   if (approved === '') return texts.approvalReady(spec.path, approvedStatus(today(), actual));
   if (approved !== actual) return texts.changedAfterApproval(spec.path);

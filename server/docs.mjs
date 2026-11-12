@@ -2,7 +2,7 @@
 // Документы задач в docs/: какие папки считаются задачами, разделы Markdown и источники в них.
 // Пути — от корня проекта: сервер запускается в нём.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { texts } from './contract.mjs';
+import { texts } from './texts.mjs';
 
 /** @typedef {import('./contract.mjs').Source} Source */
 

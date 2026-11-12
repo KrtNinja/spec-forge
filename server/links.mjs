@@ -3,7 +3,8 @@
 // Адрес — от папки документа. Внешние адреса (со схемой) в тупик не ведут; ссылка на запись с ним — неверная.
 import { existsSync } from 'node:fs';
 import { posix } from 'node:path';
-import { texts } from './contract.mjs';
+import { texts } from './texts.mjs';
+import { numberPattern } from './records.mjs';
 import { docsWithKinds, homeOf, recordCount } from './task.mjs';
 
 /** @typedef {import('./task.mjs').Scope} Scope */
@@ -16,13 +17,13 @@ export const codeOrLink = '`[^`\\n]*`|\\[([^\\]\\n]*)\\]\\(([^)\\s]*)\\)';
 const markdownLink = new RegExp(codeOrLink, 'g');
 
 /** Текст ссылки — номер записи, можно в обратных апострофах. */
-const numberText = /^(`?)((?:FR|[DQ])-\d+)\1$/;
+const numberText = new RegExp(`^(\`?)(${numberPattern})\\1$`);
 
 /** Адрес со схемой: `https:`, `mailto:`. */
 const external = /^[a-z][a-z\d+.-]*:/i;
 
-/** Якорь записи: `#d-07`, `#q-01`, `#fr-03`. */
-const recordAnchor = /^(?:fr|d|q)-\d+$/i;
+/** Якорь записи: `#d-07`, `#q-01`, `#fr-03`, `#r-02`. */
+const recordAnchor = new RegExp(`^${numberPattern}$`, 'i');
 
 /** Номер записи в тексте ссылки без обратных апострофов; текст другой — пусто. @param {string} text */
 export function linkNumber(text) {

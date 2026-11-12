@@ -1,28 +1,42 @@
 // @ts-check
 // Действие status: выбор задачи, имя новой папки, источники и задание на их изучение,
-// блокирующие вопросы, переход к требованиям, состояние требований и одобрения.
-// Для sf-grill и sf-spec; sf-review и sf-note — в следующих блоках.
+// блокирующие вопросы, переход к требованиям, путь проверки, замечания проверки, состояние требований и одобрения.
+// Для sf-grill, sf-spec и sf-review; sf-note — в следующем блоке.
 import { existsSync } from 'node:fs';
-import { failedHeading, sourcesHeading, studiedHeading, texts, tool } from './contract.mjs';
+import { failedHeading, sourcesHeading, studiedHeading, tool } from './contract.mjs';
+import { texts } from './texts.mjs';
 import { inspect } from './check.mjs';
 import {
   blocks, isTask, listedSources, mentionedKeys, readText, section, sourceKey, taskFile, tasks, validName
 } from './docs.mjs';
-import { isBlocking, questionBlocks, questionNumbers } from './records.mjs';
+import { headingNumbers, isBlocking, questionBlocks } from './records.mjs';
 import { approvalOf, isApproved } from './spec.mjs';
-import { openQuestions } from './task.mjs';
+import { openQuestions, remarksOf } from './task.mjs';
 
 /** @typedef {import('./contract.mjs').Source} Source */
 /** Ответ: текст или `error` — вызов не удался. @typedef {string | { error: string }} Answer */
 /** Следующий шаг: текст и строка Tip, если открыт переход. @typedef {{ text: string, tip: string[] }} Step */
+/** Признаки пути проверки от модели; не логическое значение — признака нет. @typedef {{ touched?: boolean, agent?: boolean }} Flags */
+/**
+ * Путь проверки: как он назван в строке и что идёт в конце ответа — задание или строка Tip.
+ * @typedef {{ text: string, tail: string[] }} Way
+ */
+/**
+ * Как команда предлагает проверку: строка, пока проверки ИИ не было, и путь у варианта «Повторить проверку».
+ * @typedef {{ start: (open: string[]) => string, way: Way }} Offer
+ */
 
 const commands = tool.inputSchema.properties.command.enum;
 
-/** Поля вызова — строки; не строка или нет поля — пусто. @param {{ command: string, task: string }} call @returns {Answer} */
-export function status({ command, task }) {
+/**
+ * Поля command и task — строки; не строка или нет поля — пусто. Признаки — для sf-review.
+ * @param {{ command: string, task: string } & Flags} call @returns {Answer}
+ */
+export function status({ command, task, touched, agent }) {
   if (!commands.includes(command)) return { error: texts.noCommand };
   if (command === 'sf-grill') return task === '' ? choose() : named(task);
   if (command === 'sf-spec') return task === '' ? chooseSpec() : namedSpec(task);
+  if (command === 'sf-review') return review(task, { touched, agent });
   return { error: texts.commandNotImplemented(command) };
 }
 
@@ -80,17 +94,84 @@ function specStage(task) {
 }
 
 /**
- * Требования в spec.md: ошибки проверки — исправить; одобрено — завершено, если сумма совпадает и вопросов нет;
- * иначе проверка ИИ или одобрение.
- * @param {string} task @returns {Answer}
+ * sf-spec: пока проверки не было — проверить (рекомендуется) или одобрить; путь — команда /sf-review, путь выберет он.
+ * @param {string} task @returns {Offer}
  */
-function requirements(task) {
+const specOffer = (task) => ({
+  start: (open) => texts.specReady(task, open),
+  way: { text: texts.reviewCommand(task), tail: [] }
+});
+
+/**
+ * Требования в spec.md: ошибки проверки — исправить; одобрено — завершено, если сумма совпадает, вопросов нет
+ * и последний раздел проверки одобрению не мешает; блокирующие замечания без решения — разбор по одному;
+ * иначе шаг с путём проверки, затем задание или строка Tip этого пути.
+ * @param {string} task @param {Offer} offer @returns {Answer}
+ */
+function requirements(task, offer = specOffer(task)) {
   const { errors, scope } = inspect(task);
   if (errors.length > 0) return texts.specErrors(task);
   const open = openQuestions(scope);
+  const remarks = remarksOf(scope);
   const sums = approvalOf(scope.docs.spec.text);
-  if (sums.approved === '') return open.length > 0 ? texts.specOpenQuestions(task, open) : texts.specReady(task);
-  return open.length > 0 || sums.approved !== sums.actual ? { error: texts.stageNotImplemented(task) } : texts.specApproved(task);
+  if (sums.approved !== '') {
+    const stuck = open.length > 0 || remarks.hindering.length > 0 || sums.approved !== sums.actual;
+    return stuck ? { error: texts.stageNotImplemented(task) } : texts.specApproved(task);
+  }
+  if (remarks.blocking.length > 0) return texts.remarksBlocking(task, remarks.blocking);
+  return [reviewStep(task, scope.docs.review.exists, offer, open, remarks), ...offer.way.tail].join('\n\n');
+}
+
+/**
+ * Строка с путём проверки: проверки ИИ не было — начало проверки; иначе по последнему разделу review.md —
+ * замечания без решения или всё разобрано. Отложенные блокирующие замечания мешают одобрению (FR-19, FR-20).
+ * @param {string} task @param {boolean} reviewed @param {Offer} offer @param {string[]} open открытые вопросы
+ * @param {ReturnType<typeof remarksOf>} remarks
+ */
+function reviewStep(task, reviewed, offer, open, { undecided, hindering }) {
+  if (!reviewed) return offer.start(open);
+  if (undecided.length > 0) return texts.remarksOpen(task, undecided, offer.way.text, open, hindering);
+  return texts.reviewDone(task, offer.way.text, open, hindering);
+}
+
+/**
+ * sf-review: без обоих признаков путь проверки не выбрать. Задача названа — новую не начинает,
+ * без spec.md проверять нечего — к sf-spec.
+ * @param {string} task @param {Flags} flags @returns {Answer}
+ */
+function review(task, flags) {
+  if ([flags.touched, flags.agent].includes(undefined)) return { error: texts.noReviewFlags };
+  if (task === '') return chooseReview(flags);
+  if (!isTask(task)) return texts.noSuchTask(task);
+  if (!hasSpec(task)) return [texts.noSpecYet(task), texts.tip(`/sf-spec ${task}`)].join('\n\n');
+  return requirements(task, reviewOffer(task, flags));
+}
+
+/** Задача не названа: для sf-review подходят задачи со spec.md, ещё не одобренные. @param {Flags} flags @returns {Answer} */
+function chooseReview(flags) {
+  const open = tasks().filter((name) => hasSpec(name) && !approved(name));
+  if (open.length === 0) return texts.noReviewTasks;
+  return open.length > 1 ? texts.chooseReviewTask(open) : requirements(open[0], reviewOffer(open[0], flags));
+}
+
+/**
+ * sf-review: пока проверки не было — проверить по пути: проверку пользователь уже выбрал.
+ * @param {string} task @param {Flags} flags @returns {Offer}
+ */
+function reviewOffer(task, flags) {
+  const way = wayOf(task, flags);
+  return { start: () => texts.reviewStart(task, way.text), way };
+}
+
+/**
+ * Путь проверки — «сначала чистый контекст»: spec.md в этой сессии не трогали — здесь, даже если отдельный агент
+ * есть; трогали — отдельным агентом по заданию, а без него — только новая сессия со строкой Tip (FR-17).
+ * @param {string} task @param {Flags} flags @returns {Way}
+ */
+function wayOf(task, { touched, agent }) {
+  if (!touched) return { text: texts.reviewHere, tail: [] };
+  if (agent) return { text: texts.reviewByAgent, tail: [texts.reviewTask(task)] };
+  return { text: texts.reviewInNewSession(task), tail: [texts.tip(`/sf-review ${task}`)] };
 }
 
 /**
@@ -117,7 +198,7 @@ function sourcesOf(task) {
 
 /** Блокирующие вопросы в порядке записей. @param {string} task */
 function blockingQuestions(task) {
-  return questionNumbers(questionBlocks(blocks(readText(taskFile(task, 'questions.md')))).filter(isBlocking));
+  return headingNumbers(questionBlocks(blocks(readText(taskFile(task, 'questions.md')))).filter(isBlocking));
 }
 
 /**

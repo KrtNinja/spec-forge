@@ -1,0 +1,5 @@
+{
+  "when": "status для sf-review: _work/review.md — папка, а не файл",
+  "refs": ["core/design.md: Ответ инструмента"],
+  "call": { "action": "status", "command": "sf-review", "task": "order-search", "touched": false, "agent": false }
+}

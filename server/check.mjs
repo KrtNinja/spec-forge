@@ -1,16 +1,17 @@
 // @ts-check
 // Действие check: проверка документов задачи и следующие свободные номера записей.
-// Ошибки — по файлам: brainstorming.md, questions.md, spec.md, _work/context.md. Внутри файла сначала разделы
-// в порядке образца, у spec.md затем строка статуса, дальше сверху вниз; внутри записи — заголовок, поля
-// в порядке образца, связь с другим файлом, упоминания номеров, ссылки Markdown.
+// Ошибки — по файлам: brainstorming.md, questions.md, spec.md, _work/review.md, _work/context.md. Внутри файла
+// сначала разделы в порядке образца, у spec.md затем строка статуса, дальше сверху вниз; внутри записи — заголовок,
+// поля в порядке образца, связь с другим файлом, упоминания номеров, ссылки Markdown.
 import { existsSync } from 'node:fs';
 import {
-  blockingValues, brainstormingHeadings, contextHeadings, decisionField, questionFields, questionStatuses, replacedField,
-  requirementFields, sourcesHeading, specHeadings, texts, tool
+  blockingValues, brainstormingHeadings, contextHeadings, decisionField, questionFields, questionStatuses, remarkDecisions,
+  remarkFields, remarkImportance, replacedField, requirementFields, sourcesHeading, specHeadings, tool
 } from './contract.mjs';
+import { texts } from './texts.mjs';
 import { headings, listedSources, readText, taskFile, taskProblem } from './docs.mjs';
 import { linkErrors } from './links.mjs';
-import { field, fieldValues, numbersIn, recordNumber } from './records.mjs';
+import { field, fieldValues, kindOf, numbersIn, recordNumber } from './records.mjs';
 import { specNotes, statusErrors } from './spec.mjs';
 import { nextNumbers, placeOf, readDocs, scopeOf, withHeading } from './task.mjs';
 
@@ -18,15 +19,33 @@ import { nextNumbers, placeOf, readDocs, scopeOf, withHeading } from './task.mjs
 /** @typedef {import('./task.mjs').Doc} Doc */
 /** @typedef {import('./task.mjs').Scope} Scope */
 /** @typedef {import('./records.mjs').Kind} Kind */
+/**
+ * Запись, у которой проверяются поля: файл, номер, вид и строки под заголовком.
+ * @typedef {{ file: string, number: string, kind: Kind, lines: string[] }} Entry
+ */
 
 const { stage, blocking, help, status, answer } = questionFields;
 
-/** Допустимые значения полей вопроса; у остальных полей значение любое. */
-const allowed = new Map([
-  [stage, tool.inputSchema.properties.command.enum],
-  [blocking, blockingValues],
-  [status, Object.values(questionStatuses)]
-]);
+/**
+ * Допустимые значения полей по видам записей; у остальных полей значение любое. По виду, а не по имени поля:
+ * «Решение» есть и у решения D, и у замечания R. @type {Record<Kind, Map<string, string[]>>}
+ */
+const allowed = {
+  D: new Map(),
+  Q: new Map([
+    [stage, tool.inputSchema.properties.command.enum],
+    [blocking, blockingValues],
+    [status, Object.values(questionStatuses)]
+  ]),
+  FR: new Map(),
+  R: new Map([
+    [remarkFields.importance, Object.values(remarkImportance)],
+    [remarkFields.decision, Object.values(remarkDecisions)]
+  ])
+};
+
+/** Обязательные поля замечания: все, кроме «Решения» — его даёт пользователь при разборе. */
+const remarkRequired = Object.values(remarkFields).filter((name) => name !== remarkFields.decision);
 
 /** Обязательные поля вопроса по статусу; статуса нет или он недопустим — только сам статус. */
 const required = new Map([
@@ -48,12 +67,14 @@ export function check({ task }) {
 /** Ошибки всех документов существующей задачи и разобранные документы. @param {string} task */
 export function inspect(task) {
   const scope = scopeOf(readDocs(task));
-  const { ideas, questions, spec } = scope.docs;
+  const { ideas, questions, spec, review } = scope.docs;
   const errors = [
     ...headingErrors(ideas.path, brainstormingHeadings, ideas.blocks.map((block) => block.heading)),
     ...ideas.blocks.flatMap((block) => ideasBlockErrors(ideas.path, block, scope)),
     ...questions.blocks.flatMap((block) => blockErrors(questions, 'Q', block, scope)),
     ...specErrors(spec, scope),
+    // Обязательных заголовков у _work/review.md нет; файла нет — разделов нет.
+    ...review.blocks.flatMap((block) => blockErrors(review, 'R', block, scope)),
     ...contextErrors(taskFile(task, '_work/context.md'))
   ];
   return { errors, scope };
@@ -116,55 +137,75 @@ function recordErrors(file, block, kind, scope) {
   const first = scope.records[kind].find((item) => recordNumber(item, kind) === number);
   return [
     ...(first === block ? [] : [texts.repeatedNumber(file, number)]),
-    ...fieldsOf[kind](file, number, block, scope),
+    ...fieldsOf[kind]({ file, number, kind, lines: block.lines }, scope),
     ...references(file, place, block.lines, scope)
   ];
 }
 
-/** Поля записи каждого вида и связь с другим файлом. @type {Record<Kind, (file: string, number: string, block: Block, scope: Scope) => string[]>} */
+/** Поля записи каждого вида и связь с другим файлом. @type {Record<Kind, (entry: Entry, scope: Scope) => string[]>} */
 const fieldsOf = {
-  D: (file, number, block) => [decisionField, replacedField].flatMap((name) => fieldErrors(file, number, block.lines, name, [decisionField])),
+  D: (entry) => fieldsErrors(entry, [decisionField, replacedField], [decisionField]),
   Q: questionErrors,
-  FR: requirementErrors
+  FR: requirementErrors,
+  R: remarkErrors
 };
 
 /**
  * Поля в порядке образца, затем связь с brainstorming.md. Статус повторяется — как недопустимый.
- * @param {string} file @param {string} number @param {Block} block @param {Scope} scope
+ * @param {Entry} entry @param {Scope} scope
  */
-function questionErrors(file, number, block, scope) {
-  const state = field(block.lines, status);
-  const needed = required.get(state) || [status];
+function questionErrors(entry, scope) {
+  const state = field(entry.lines, status);
   return [
-    ...Object.values(questionFields).flatMap((name) => fieldErrors(file, number, block.lines, name, needed)),
-    ...decisionLinkErrors(file, number, state, scope)
+    ...fieldsErrors(entry, Object.values(questionFields), required.get(state) || [status]),
+    ...decisionLinkErrors(entry.file, entry.number, state, scope)
   ];
 }
 
 /**
  * Оба поля обязательны; в заполненном «Основании» — номер решения D, и ни одно названное решение не заменено.
- * @param {string} file @param {string} number @param {Block} block @param {Scope} scope
+ * @param {Entry} entry @param {Scope} scope
  */
-function requirementErrors(file, number, block, scope) {
+function requirementErrors(entry, scope) {
+  const { file, number } = entry;
   const names = Object.values(requirementFields);
-  const basis = field(block.lines, requirementFields.basis);
+  const basis = field(entry.lines, requirementFields.basis);
   const decisions = numbersIn([basis]).filter((item) => item.startsWith('D-'));
   return [
-    ...names.flatMap((name) => fieldErrors(file, number, block.lines, name, names)),
+    ...fieldsErrors(entry, names, names),
     ...(basis !== '' && decisions.length === 0 ? [texts.noBasisDecision(file, number)] : []),
     ...decisions.filter((item) => scope.replaced.includes(item)).map((item) => texts.replacedBasis(file, number, item))
   ];
 }
 
 /**
- * Поле повторяется — только эта ошибка; пустое — ошибка, если оно обязательно; иначе допустимое ли значение.
- * @param {string} file @param {string} number @param {string[]} lines @param {string} name @param {string[]} needed обязательные поля
+ * Поля в порядке образца, затем связь с questions.md: номер отложенного замечания упомянут в вопросе (FR-19).
+ * @param {Entry} entry @param {Scope} scope
  */
-function fieldErrors(file, number, lines, name, needed) {
+function remarkErrors(entry, scope) {
+  const { file, number } = entry;
+  const postponed = field(entry.lines, remarkFields.decision) === remarkDecisions.postponed;
+  return [
+    ...fieldsErrors(entry, Object.values(remarkFields), remarkRequired),
+    ...(postponed && !scope.asked.includes(number) ? [texts.noQuestion(file, number)] : [])
+  ];
+}
+
+/** Поля записи в порядке образца. @param {Entry} entry @param {string[]} names @param {string[]} needed обязательные поля */
+function fieldsErrors(entry, names, needed) {
+  return names.flatMap((name) => fieldErrors(entry, name, needed));
+}
+
+/**
+ * Поле повторяется — только эта ошибка; пустое — ошибка, если оно обязательно; иначе допустимое ли значение.
+ * @param {Entry} entry @param {string} name @param {string[]} needed обязательные поля
+ */
+function fieldErrors(entry, name, needed) {
+  const { file, number, lines } = entry;
   if (fieldValues(lines, name).length > 1) return [texts.repeatedField(file, number, name)];
   const value = field(lines, name);
   if (value === '') return needed.includes(name) ? [texts.emptyField(file, number, name)] : [];
-  const options = allowed.get(name) || [value];
+  const options = allowed[entry.kind].get(name) || [value];
   return options.includes(value) ? [] : [texts.badValue(file, number, name, value, options)];
 }
 
@@ -183,11 +224,21 @@ function decisionLinkErrors(file, number, state, scope) {
  * @param {string} file @param {string} place номер записи или заголовок раздела @param {string[]} lines @param {Scope} scope
  */
 function references(file, place, lines, scope) {
-  const existing = Object.values(scope.numbers).flat();
   return [
-    ...numbersIn(lines).filter((item) => !existing.includes(item)).map((item) => texts.deadReference(file, place, item)),
+    ...missingNumbers(file, lines, scope).map((item) => texts.deadReference(file, place, item)),
     ...linkErrors(scope, file, place, lines)
   ];
+}
+
+/**
+ * Упомянутые номера, которых нет среди записей. В _work/review.md номер FR не проверяется: прежние разделы
+ * не правятся, а требование могли удалить по принятому замечанию.
+ * @param {string} file @param {string[]} lines @param {Scope} scope
+ */
+function missingNumbers(file, lines, scope) {
+  const existing = Object.values(scope.numbers).flat();
+  const unchecked = file === scope.docs.review.path ? ['FR'] : [];
+  return numbersIn(lines).filter((item) => !existing.includes(item) && !unchecked.includes(kindOf(item)));
 }
 
 /**

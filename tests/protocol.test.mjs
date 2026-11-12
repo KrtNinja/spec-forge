@@ -9,7 +9,8 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { exchange, handshake, message, root } from './server.mjs';
-import { texts, tool } from '../server/contract.mjs';
+import { tool } from '../server/contract.mjs';
+import { texts } from '../server/texts.mjs';
 
 const versions = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 

@@ -1,0 +1,5 @@
+{
+  "when": "check: _work/review.md — папка, а не файл",
+  "refs": ["core/design.md: Ответ инструмента"],
+  "call": { "action": "check", "task": "order-search" }
+}
