@@ -1,5 +1,5 @@
 {
   "when": "/sf-review, spec.md в этой сессии правили, отдельного агента нет: только новая сессия, строка Tip",
-  "refs": ["FR-17", "sf-review/design.md: Проверка и разбор замечаний", "FR-13"],
+  "refs": ["FR-17", "sf-review/design.md: Путь проверки", "FR-13"],
   "call": { "action": "status", "command": "sf-review", "task": "order-search", "touched": true, "agent": false }
 }

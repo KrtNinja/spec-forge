@@ -1,5 +1,5 @@
 {
   "when": "status для sf-review без признака agent: путь проверки не выбрать — вызов не удался",
-  "refs": ["FR-17", "sf-review/design.md: Проверка и разбор замечаний"],
+  "refs": ["FR-17", "sf-review/design.md: Путь проверки"],
   "call": { "action": "status", "command": "sf-review", "task": "order-search", "touched": true }
 }
