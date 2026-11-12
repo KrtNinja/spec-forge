@@ -1,5 +1,6 @@
 // @ts-check
-// Действие check: проверка документов задачи и следующие свободные номера записей.
+// Действие check: проверка документов задачи, следующие свободные номера записей и требования, зависящие
+// от затронутых решений и вопросов.
 // Ошибки — по файлам: brainstorming.md, questions.md, spec.md, _work/review.md, _work/context.md. Внутри файла
 // сначала разделы в порядке образца, у spec.md затем строка статуса, дальше сверху вниз; внутри записи — заголовок,
 // поля в порядке образца, связь с другим файлом, упоминания номеров, ссылки Markdown.
@@ -13,7 +14,7 @@ import { headings, listedSources, readText, taskFile, taskProblem } from './docs
 import { linkErrors } from './links.mjs';
 import { field, fieldValues, kindOf, numbersIn, recordNumber } from './records.mjs';
 import { specNotes, statusErrors } from './spec.mjs';
-import { nextNumbers, placeOf, readDocs, scopeOf, withHeading } from './task.mjs';
+import { dependentsOf, nextNumbers, placeOf, readDocs, scopeOf, withHeading } from './task.mjs';
 
 /** @typedef {import('./docs.mjs').Block} Block */
 /** @typedef {import('./task.mjs').Doc} Doc */
@@ -54,14 +55,32 @@ const required = new Map([
   [questionStatuses.outOfScope, [status, answer]]
 ]);
 
-/** Поле вызова — строка; не строка или нет поля — пусто. @param {{ task: string }} call @returns {import('./status.mjs').Answer} */
-export function check({ task }) {
+/**
+ * Поле task — строка; не строка или нет поля — пусто. Поле affected — список строк; нет поля — пустой список,
+ * не список — undefined: вызов не удаётся после проверки задачи.
+ * @param {{ task: string, affected: string[] | undefined }} call @returns {import('./status.mjs').Answer}
+ */
+export function check({ task, affected }) {
   const problem = taskProblem(task);
   if (problem !== '') return { error: problem };
+  if (affected === undefined) return { error: texts.badAffected };
   const { errors, scope } = inspect(task);
   const next = nextNumbers(scope);
   const summary = errors.length === 0 ? texts.noErrors(next) : texts.errors(errors, next);
-  return [summary, ...specNotes(scope, errors.length === 0)].join('\n\n');
+  return [summary, ...dependents(scope, affected), ...specNotes(scope, errors.length === 0)].join('\n\n');
+}
+
+/**
+ * Зависящие требования — после строки номеров: по пункту на номер в порядке вызова, повтор — один пункт.
+ * Список пуст — абзаца нет.
+ * @param {Scope} scope @param {string[]} affected
+ */
+function dependents(scope, affected) {
+  const lines = [...new Set(affected)].map((number) => {
+    const requirements = dependentsOf(scope, number);
+    return requirements === undefined ? texts.notAffectable(number) : texts.dependsOn(number, requirements);
+  });
+  return lines.length === 0 ? [] : [texts.dependents(lines)];
 }
 
 /** Ошибки всех документов существующей задачи и разобранные документы. @param {string} task */

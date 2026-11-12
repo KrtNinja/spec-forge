@@ -32,6 +32,16 @@ const flag = (value) => (typeof value === 'boolean' ? value : undefined);
 /** Значение для текста ответа; не строка — в записи JSON. @param {unknown} value */
 const shown = (value) => (typeof value === 'string' ? value : String(JSON.stringify(value)));
 
+/**
+ * Список вызова: строки как есть, остальные элементы — в записи JSON. Нет поля — пустой список,
+ * не список — undefined: действие сообщит, как передать.
+ * @param {unknown} value
+ */
+function items(value) {
+  if (value === undefined) return [];
+  return Array.isArray(value) ? value.map(shown) : undefined;
+}
+
 /** @param {number} code @param {string} message */
 function failure(code, message) {
   return { error: { code, message } };
@@ -60,7 +70,8 @@ function callTool(params) {
   if (params.name !== tool.name) return failure(-32602, texts.unknownTool(shown(params.name)));
   const args = object(params.arguments);
   const call = {
-    action: field(args.action), command: field(args.command), task: field(args.task), touched: flag(args.touched), agent: flag(args.agent)
+    action: field(args.action), command: field(args.command), task: field(args.task), touched: flag(args.touched), agent: flag(args.agent),
+    affected: items(args.affected)
   };
   if (!tool.inputSchema.properties.action.enum.includes(call.action)) return answer(texts.noAction, true);
   try {
