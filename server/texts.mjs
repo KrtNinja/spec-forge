@@ -62,8 +62,8 @@ export const texts = {
   noAction: 'Укажите действие: `status`, `check` или `link`.',
   noCommand: 'Укажите команду: `sf-grill`, `sf-spec`, `sf-review` или `sf-note`.',
   /** sf-review без обоих признаков пути проверки; не логическое значение — как нет признака. */
-  noReviewFlags: 'Для `sf-review` укажите `touched` — готовил, правил или проверял ли ты `spec.md` этой задачи в этой сессии, '
-    + '— и `agent` — можешь ли поручить работу отдельному агенту.',
+  noReviewFlags: 'Для `sf-review` укажите `touched` — готовился, правился или проверялся ли `spec.md` этой задачи в этой сессии, '
+    + 'в том числе в `sf-spec` или `sf-note`, — и `agent` — есть ли у тебя инструмент запуска отдельного агента.',
   /** Для check поле affected есть, но это не список. */
   badAffected: 'Укажите `affected` списком номеров решений и вопросов, например `["D-03", "Q-02"]`.',
   noTask: 'Укажите задачу: имя папки в `docs/`.',
@@ -196,9 +196,9 @@ export const texts = {
   chooseAnyTask: (tasks) => `Задач несколько:\n\n${list(tasks.map(code))}\n\n`
     + 'Дальше: выбрать ту, к которой относятся сведения, затем `status` с её именем.',
 
-  // status: проверка требований. Для sf-review подходит задача со spec.md, ещё не одобренная. Строки замечаний и
-  // после проверки — одинаковые для sf-spec и sf-review, различается путь проверки: у sf-spec — команда, у sf-review —
-  // по touched и agent. С путём «отдельным агентом» ниже идёт задание, с путём «в новой сессии» — строка Tip.
+  // status: проверка требований. Для sf-review подходит задача со spec.md, ещё не одобренная. Строки замечаний и после
+  // проверки — общие для sf-spec и sf-review, различается путь: у sf-spec — команда, у sf-review — по touched и agent;
+  // при touched — нет и разобранной проверке — сразу reviewStart. С путём «отдельным агентом» ниже идёт задание, «в новой сессии» — Tip.
 
   /** Путь для sf-spec: путь выберет sf-review. */
   reviewCommand,
@@ -220,8 +220,9 @@ export const texts = {
   /** Названная задача без spec.md; дальше строка Tip с /sf-spec. @param {string} task */
   noSpecYet: (task) => `Задача ${code(task)}: требований в \`spec.md\` ещё нет — проверять нечего.\n\n`
     + `Дальше: подготовить требования — ${code(`/sf-spec ${task}`)}.`,
-  /** sf-review, проверки ИИ ещё не было: пользователь её уже выбрал. @param {string} task @param {string} way */
-  reviewStart: (task, way) => `Задача ${code(task)}: требования в \`spec.md\` готовы к проверке.\n\nДальше: проверить требования — ${way}.`,
+  /** sf-review, проверку уже выбрали: её не было или, при touched — нет, всё разобрано. @param {string} task @param {string} way @param {string[]} questions @param {string[]} remarks */
+  reviewStart: (task, way, questions, remarks) => `${ready(`Задача ${code(task)}: требования в \`spec.md\` готовы к проверке.`,
+    questions, remarks)}\n\nДальше: проверить требования — ${way}.`,
   /** В последнем разделе review.md блокирующие замечания без решения (FR-18). @param {string} task @param {string[]} numbers */
   remarksBlocking: (task, numbers) => `Задача ${code(task)}: требования в \`spec.md\`, проверки пройдены. `
     + `Блокирующие замечания проверки без решения: ${codes(numbers)}.\n\n`
@@ -270,6 +271,8 @@ export const texts = {
   /** @param {string} file @param {string} number @param {string} field @param {string} value @param {string[]} allowed */
   badValue: (file, number, field, value, allowed) => `${code(file)}, ${code(number)} — «${field}»: ${code(value)} не подходит, `
     + `допустимо ${codes(allowed)}`,
+  /** Пункт «- Имя: …» после первого поля образца вопроса, но имени нет в образце. @param {string} file @param {string} number @param {string} field */
+  unknownField: (file, number, field) => `${code(file)}, ${code(number)} — поле «${field}» не из образца вопроса`,
   /** Решённый вопрос, на который не ссылается ни одно решение. @param {string} file @param {string} number */
   noDecision: (file, number) => `${code(file)}, ${code(number)} — вопрос решён, но ни одно решение \`D-…\` на него не ссылается`,
   /** Вопрос «не входит» не упомянут в «Не входит в задачу». @param {string} file @param {string} number */

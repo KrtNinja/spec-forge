@@ -15,5 +15,6 @@
 - `docs/order-search/questions.md`, `Q-06` — нет записи `FR-02`
 - `docs/order-search/questions.md`, `Q-07` — «Блокирует» повторяется
 - `docs/order-search/questions.md`, `Q-08` — «Статус» повторяется
+- `docs/order-search/questions.md`, `Q-09` — поле «Заменено» не из образца вопроса
 
-Следующие номера: `D-02`, `Q-09`.
+Следующие номера: `D-02`, `Q-10`.

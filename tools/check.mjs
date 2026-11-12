@@ -1,14 +1,5 @@
 // @ts-check
 import { execFileSync, spawnSync } from 'node:child_process';
-import { appendFileSync } from 'node:fs';
-
-/** @param {string} message */
-function report(message) {
-  console.log(message);
-  if (process.env.GITHUB_STEP_SUMMARY) {
-    appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${message}\n\n`);
-  }
-}
 
 /** @param {string} command @param {string[]} args */
 function run(command, args) {
@@ -36,15 +27,12 @@ const command = process.argv[2];
 if (product.length > 0 && tests.every((file) => file.startsWith('tools/'))) {
   throw new Error('Есть рабочий JavaScript-код, но нет тестов продукта. Добавьте *.test.js, *.test.mjs или *.test.cjs.');
 }
-if (product.length === 0) report('Рабочего JavaScript-кода продукта пока нет. Проверяется только инфраструктура.');
 
 function test() {
-  if (tests.length === 0) return report('Тестов пока нет — проверка поведения не выполнялась.');
   run(process.execPath, ['--test', ...tests]);
 }
 
 function check() {
-  if (files.length === 0) return report('JavaScript-файлов пока нет.');
   bin('eslint/bin/eslint.js', ['--config', 'tools/eslint.config.mjs', '--max-warnings=0', ...files]);
   bin('typescript/bin/tsc', [
     '--allowJs', '--checkJs', '--noEmit', '--strict', '--skipLibCheck',
@@ -64,7 +52,6 @@ function duplicates(paths, threshold, name) {
 }
 
 function coverage() {
-  if (tests.length === 0) return report('Тестов пока нет — покрытие не измерялось.');
   bin('c8/bin/c8.js', [
     '--all', '--reporter=text', '--reporter=html', '--reporter=lcov',
     ...code.flatMap((file) => ['--include', file]),
@@ -76,7 +63,6 @@ function coverage() {
 // на исходное дерево. Команда не ищет корень через git (это вернуло бы исходное дерево)
 // и запускает только тесты продукта: проверки tools/ от кода продукта не зависят.
 function mutate() {
-  if (product.length === 0) return report('Рабочего кода пока нет — мутационные тесты не выполнялись.');
   const productTests = tests.filter((file) => !file.startsWith('tools/'));
   run('mutator', [
     '--no-coverage', '--mutate-all', '--max-workers', '2',

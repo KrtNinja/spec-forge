@@ -1,0 +1,5 @@
+{
+  "when": "/sf-review, проверки ИИ не было, вопрос открыт, spec.md в этой сессии правили, отдельный агент есть: что мешает одобрению, названо, затем задание на проверку",
+  "refs": ["FR-17", "FR-21", "sf-review/design.md: Путь проверки"],
+  "call": { "action": "status", "command": "sf-review", "task": "order-search", "touched": true, "agent": true }
+}

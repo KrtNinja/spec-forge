@@ -1,0 +1,5 @@
+{
+  "when": "/sf-review в чистой сессии после разобранной проверки, вопрос открыт: проверить здесь; что мешает одобрению, названо",
+  "refs": ["FR-17", "FR-21", "sf-review/design.md: Путь проверки"],
+  "call": { "action": "status", "command": "sf-review", "task": "order-search", "touched": false, "agent": true }
+}
