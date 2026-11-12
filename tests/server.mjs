@@ -78,12 +78,12 @@ function expectedId(line) {
 /**
  * Ждёт условия не дольше 2 секунд.
  * @param {() => boolean} ready
- * @param {string} problem
+ * @param {() => string} problem
  */
 async function until(ready, problem) {
   const deadline = Date.now() + timeout;
   while (!ready()) {
-    if (Date.now() > deadline) throw new Error(problem);
+    if (Date.now() > deadline) throw new Error(problem());
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
 }
@@ -96,9 +96,10 @@ async function until(ready, problem) {
  * сам завершаться с кодом 0 не дольше чем за 2 секунды.
  * @param {string} cwd
  * @param {string[]} lines
+ * @param {(index: number) => void} [beforeSend] действия перед запросом, после ответа на предыдущий
  * @returns {Promise<any[]>} все сообщения сервера
  */
-export async function exchange(cwd, lines) {
+export async function exchange(cwd, lines, beforeSend = () => {}) {
   if (!existsSync(server)) throw new Error('Нет server/mcp.mjs: тесты запущены не из корня репозитория.');
   const child = spawn(process.execPath, [server], { cwd });
   let stdout = '';
@@ -110,14 +111,15 @@ export async function exchange(cwd, lines) {
   child.stdin.on('error', () => {}); // сервер упал раньше времени — об этом скажет код завершения
   child.on('close', (status) => { code = status; });
   try {
-    for (const line of lines) {
+    for (const [index, line] of lines.entries()) {
+      beforeSend(index);
       child.stdin.write(`${line}\n`);
       const id = expectedId(line);
       if (id === undefined) continue;
-      await until(() => parse(stdout).some((reply) => reply.id === id), `Нет ответа при открытом вводе на: ${line}\n${stderr}`);
+      await until(() => parse(stdout).some((reply) => reply.id === id), () => `Нет ответа при открытом вводе на: ${line}\n${stderr}`);
     }
     child.stdin.end();
-    await until(() => code !== undefined, `Сервер не завершился за 2 секунды после закрытия ввода.\n${stderr}`);
+    await until(() => code !== undefined, () => `Сервер не завершился за 2 секунды после закрытия ввода.\n${stderr}`);
   } finally {
     child.kill();
   }

@@ -1,0 +1,16 @@
+{
+  "when": "sf-review с явно указанной задачей: изменённый после одобрения spec.md требует повторного одобрения",
+  "refs": [
+    "FR-23",
+    "FR-24",
+    "core/design.md: Вход в работу и выбор задачи",
+    "core/design.md: Состояние и переходы"
+  ],
+  "call": {
+    "action": "status",
+    "command": "sf-review",
+    "task": "order-search",
+    "touched": false,
+    "agent": false
+  }
+}

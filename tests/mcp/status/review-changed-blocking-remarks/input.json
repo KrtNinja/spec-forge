@@ -1,0 +1,17 @@
+{
+  "when": "sf-review без имени: изменённый spec.md, открытый вопрос и блокирующее замечание — задача найдена, сначала разбор замечания",
+  "refs": [
+    "FR-23",
+    "FR-24",
+    "core/design.md: Вход в работу и выбор задачи",
+    "core/design.md: Состояние и переходы",
+    "FR-18",
+    "FR-21"
+  ],
+  "call": {
+    "action": "status",
+    "command": "sf-review",
+    "touched": false,
+    "agent": false
+  }
+}
