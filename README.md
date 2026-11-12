@@ -12,7 +12,7 @@
 
 ## Начало работы
 
-Нужны Git, Node.js и установленный [GigaCode CLI](https://gitverse.ru/docs/ai/ai-assistant-gigacode/getting-started-with-gigacode/quick-start). Команды `git`, `node` и `gigacode` должны быть доступны в терминале.
+Нужны Git, Node.js и GigaCode CLI.
 
 Проверки JavaScript выполняются в CI на Node.js **22.5.1**. Это проверенная версия, а не установленная нижняя граница совместимости. Подтверждённой версии GigaCode CLI для Spec Forge пока нет: подключение и весь путь на целевых моделях ещё требуют проверки. Совместимость с другими версиями и платформами не заявлена.
 
