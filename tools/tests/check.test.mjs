@@ -142,3 +142,9 @@ test('Список файлов для мутаций — рабочий код 
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout, '["value.js"]\n');
 });
+
+test('Мутационный прогон файла без мест мутаций: в строке итогов нет времени исходных тестов', () => {
+  const result = fixture({ ...mutated, mutator: '#!/bin/sh\nexit 0\n' }, ['mutate', 'value.js']);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /^\| value\.js \| 0 \| 0 \| 0 \| 0 \| — \| \d+ \|$/m);
+});

@@ -107,9 +107,11 @@ function mutateFile(file, testCommand) {
   const runs = existsSync(log) ? readFileSync(log, 'utf8') : '';
   const killed = count(result.stdout, /^KILLED /gm);
   const survived = count(result.stdout, /^SURVIVED /gm);
-  const baseline = Number(/^end (\d+)$/m.exec(runs)?.[1]) / 1000;
+  // Первый законченный запуск — исходные тесты. Его нет, если в файле нет мест мутаций.
+  const baseline = /^end (\d+)$/m.exec(runs)?.[1];
+  const baselineSeconds = baseline === undefined ? '—' : (Number(baseline) / 1000).toFixed(1);
   const seconds = Math.round((Date.now() - started) / 1000);
-  summary(`| ${file} | ${killed + survived} | ${killed} | ${survived} | ${count(runs, /^start$/gm) - count(runs, /^end /gm)} | ${baseline.toFixed(1)} | ${seconds} |`);
+  summary(`| ${file} | ${killed + survived} | ${killed} | ${survived} | ${count(runs, /^start$/gm) - count(runs, /^end /gm)} | ${baselineSeconds} | ${seconds} |`);
   return result.status ?? 1;
 }
 
