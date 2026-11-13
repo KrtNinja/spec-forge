@@ -1,5 +1,5 @@
 {
-  "when": "/sf-review, spec.md в этой сессии правили, отдельный агент есть: поручить ему задание на проверку",
+  "when": "/spec-forge:sf-review, spec.md в этой сессии правили, отдельный агент есть: поручить ему задание на проверку",
   "refs": ["FR-17", "sf-review/design.md: Путь проверки"],
   "call": { "action": "status", "command": "sf-review", "task": "order-search", "touched": true, "agent": true }
 }

@@ -1,5 +1,5 @@
 {
-  "when": "/sf-review для задачи без spec.md: проверять нечего — к /sf-spec со строкой Tip",
+  "when": "/spec-forge:sf-review для задачи без spec.md: проверять нечего — к /spec-forge:sf-spec со строкой Tip",
   "refs": ["FR-23", "core/design.md: Вход в работу и выбор задачи"],
   "call": { "action": "status", "command": "sf-review", "task": "order-search", "touched": false, "agent": false }
 }

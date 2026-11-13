@@ -1,5 +1,5 @@
 {
-  "when": "/sf-review без задачи: неодобренных spec.md нет — задача без spec.md и одобренная не предлагаются",
+  "when": "/spec-forge:sf-review без задачи: неодобренных spec.md нет — задача без spec.md и одобренная не предлагаются",
   "refs": ["FR-23", "core/design.md: Вход в работу и выбор задачи"],
   "call": { "action": "status", "command": "sf-review", "touched": false, "agent": false }
 }

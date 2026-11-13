@@ -1,5 +1,5 @@
 {
-  "when": "/sf-spec для задачи без spec.md, где источник не изучен, а другого нет: обсуждение не закончено, назад к sf-grill",
+  "when": "/spec-forge:sf-spec для задачи без spec.md, где источник не изучен, а другого нет: обсуждение не закончено, назад к sf-grill",
   "refs": ["FR-10", "FR-13", "FR-27", "core/design.md: Переходы между сессиями"],
   "call": { "action": "status", "command": "sf-spec", "task": "order-search" }
 }

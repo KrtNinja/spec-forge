@@ -1,5 +1,5 @@
 {
-  "when": "/sf-grill с задачей, у которой уже есть spec.md без строки одобрения: обсуждение закончено, дальше sf-spec со строкой Tip",
+  "when": "/spec-forge:sf-grill с задачей, у которой уже есть spec.md без строки одобрения: обсуждение закончено, дальше sf-spec со строкой Tip",
   "refs": ["FR-13", "FR-23", "core/design.md: Вход в работу и выбор задачи", "core/design.md: Переходы между сессиями"],
   "call": { "action": "status", "command": "sf-grill", "task": "old-search" }
 }
