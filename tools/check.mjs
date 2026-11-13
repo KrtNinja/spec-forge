@@ -1,5 +1,7 @@
 // @ts-check
 import { execFileSync, spawnSync } from 'node:child_process';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 /** @param {string} command @param {string[]} args */
 function run(command, args) {
@@ -62,12 +64,48 @@ function coverage() {
 // mutator запускает команду в рабочей папке, где изменённый файл — копия, а остальное — ссылки
 // на исходное дерево. Команда не ищет корень через git (это вернуло бы исходное дерево)
 // и запускает только тесты продукта: проверки tools/ от кода продукта не зависят.
+// Файлы идут по одному, отдельным запуском mutator: так у каждого своя строка итогов.
 function mutate() {
   const productTests = tests.filter((file) => !file.startsWith('tools/'));
-  run('mutator', [
-    '--no-coverage', '--mutate-all', '--max-workers', '2',
-    '--test-command', ['node', '--test', ...productTests].join(' '), ...product
-  ]);
+  const testCommand = ['node', '--test', '--test-reporter=./tools/mutation-reporter.mjs', ...productTests].join(' ');
+  summary('| Файл | Мест | Убито | Выжило | Вышло за предел времени | Исходные тесты, с | Время, с |\n|---|---|---|---|---|---|---|');
+  process.exit(Math.max(0, ...product.map((file) => mutateFile(file, testCommand))));
+}
+
+/** @param {string} line */
+function summary(line) {
+  console.log(line);
+  if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${line}\n`);
+}
+
+/** @param {string} text @param {RegExp} pattern */
+function count(text, pattern) {
+  return (text.match(pattern) ?? []).length;
+}
+
+/**
+ * Мутации одного файла и строка итогов по нему. Числа мест берутся из вывода mutator,
+ * запуски тестов — из журнала, который ведёт tools/mutation-reporter.mjs.
+ * @param {string} file @param {string} testCommand
+ * @returns {number} код завершения mutator
+ */
+function mutateFile(file, testCommand) {
+  const log = resolve('.metrics/mutation-runs.log');
+  mkdirSync('.metrics', { recursive: true });
+  rmSync(log, { force: true });
+  const started = Date.now();
+  const result = spawnSync('mutator', [
+    '--no-coverage', '--mutate-all', '--max-workers', '2', '--test-command', testCommand, file
+  ], { env: { ...process.env, MUTATION_LOG: log }, stdio: ['ignore', 'pipe', 'inherit'], encoding: 'utf8', maxBuffer: 2 ** 28 });
+  if (result.error) throw result.error;
+  process.stdout.write(result.stdout);
+  const runs = existsSync(log) ? readFileSync(log, 'utf8') : '';
+  const killed = count(result.stdout, /^KILLED /gm);
+  const survived = count(result.stdout, /^SURVIVED /gm);
+  const baseline = Number(/^end (\d+)$/m.exec(runs)?.[1]) / 1000;
+  const seconds = Math.round((Date.now() - started) / 1000);
+  summary(`| ${file} | ${killed + survived} | ${killed} | ${survived} | ${count(runs, /^start$/gm) - count(runs, /^end /gm)} | ${baseline.toFixed(1)} | ${seconds} |`);
+  return result.status ?? 1;
 }
 
 switch (command) {
