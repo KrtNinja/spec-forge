@@ -1,5 +1,5 @@
 {
-  "when": "/sf-grill без задачи, в docs/ только задача со spec.md и папка без brainstorming.md",
+  "when": "/spec-forge:sf-grill без задачи, в docs/ только задача со spec.md и папка без brainstorming.md",
   "refs": ["FR-23", "core/design.md: Вход в работу и выбор задачи"],
   "call": { "action": "status", "command": "sf-grill" }
 }

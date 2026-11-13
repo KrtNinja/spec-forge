@@ -1,3 +1,3 @@
 Задача `order-search`: требования одобрены, работа завершена.
 
-Новые сведения — `/sf-note order-search`.
+Новые сведения — `/spec-forge:sf-note order-search`.

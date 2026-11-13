@@ -1,5 +1,5 @@
 {
-  "when": "/sf-review: в последнем разделе review.md блокирующее замечание без решения — разбор по одному; прежний раздел и не блокирующее не называются",
+  "when": "/spec-forge:sf-review: в последнем разделе review.md блокирующее замечание без решения — разбор по одному; прежний раздел и не блокирующее не называются",
   "refs": ["FR-18", "core/design.md: Состояние и переходы"],
   "call": { "action": "status", "command": "sf-review", "task": "order-search", "touched": true, "agent": false }
 }

@@ -1,5 +1,5 @@
 Задача `order-search`: требований ещё нет, обсуждение не закончено — подготовку требований блокируют `Q-01`, `Q-03`.
 
-**Дальше:** продолжить обсуждение — `/sf-grill order-search`.
+**Дальше:** продолжить обсуждение — `/spec-forge:sf-grill order-search`.
 
-**Tip:** Введите `/sf-grill order-search` чтобы продолжить
+**Tip:** Введите `/spec-forge:sf-grill order-search` чтобы продолжить

@@ -1,5 +1,5 @@
 {
-  "when": "/sf-review с именем задачи, которой нет: новую задачу не начинает",
+  "when": "/spec-forge:sf-review с именем задачи, которой нет: новую задачу не начинает",
   "refs": ["FR-23", "core/design.md: Вход в работу и выбор задачи"],
   "call": { "action": "status", "command": "sf-review", "task": "cart-limits", "touched": false, "agent": false }
 }

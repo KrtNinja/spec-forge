@@ -1,5 +1,5 @@
 {
-  "when": "/sf-grill с пустым именем задачи — как без задачи",
+  "when": "/spec-forge:sf-grill с пустым именем задачи — как без задачи",
   "refs": ["FR-23"],
   "call": { "action": "status", "command": "sf-grill", "task": "" }
 }

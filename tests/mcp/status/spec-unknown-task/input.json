@@ -1,5 +1,5 @@
 {
-  "when": "/sf-spec с именем задачи, которой нет: sf-spec новую задачу не начинает",
+  "when": "/spec-forge:sf-spec с именем задачи, которой нет: sf-spec новую задачу не начинает",
   "refs": ["FR-23", "core/design.md: Вход в работу и выбор задачи"],
   "call": { "action": "status", "command": "sf-spec", "task": "cart-limits" }
 }

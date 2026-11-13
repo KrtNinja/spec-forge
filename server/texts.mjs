@@ -34,8 +34,8 @@ const grouped = (value) => String(value).replace(/\B(?=(\d{3})+$)/g, ' ');
  */
 const where = (file, place) => (place.startsWith('#') ? `${code(file)}, «${place.replace(/^#+ /, '')}»` : `${code(file)}, ${code(place)}`);
 
-/** @param {string} task */
-const reviewCommand = (task) => code(`/sf-review ${task}`);
+/** Имя команды GigaCode с необязательной задачей. @param {string} name @param {string} [task] */
+const command = (name, task = '') => code(`/spec-forge:${name}${task === '' ? '' : ` ${task}`}`);
 
 /** Что мешает одобрению; хоть один список не пуст. @param {string[]} questions открытые @param {string[]} remarks блокирующие замечания */
 const blocked = (questions, remarks) => `**Одобрить нельзя** — ${[
@@ -53,7 +53,7 @@ const ready = (state, questions, remarks) => (questions.length + remarks.length 
  */
 function choice(option, way, task, questions, remarks) {
   if (questions.length > 0) {
-    return `${option} — ${way} — или разобрать открытые вопросы. Ответ бизнеса или разработчика — через ${code(`/sf-note ${task}`)}.`;
+    return `${option} — ${way} — или разобрать открытые вопросы. Ответ бизнеса или разработчика — через ${command('sf-note', task)}.`;
   }
   return remarks.length > 0 ? `${option} — ${way}.` : `${option} — ${way} — или «Одобрить» строкой из \`check\`.`;
 }
@@ -105,15 +105,15 @@ export const texts = {
     + `${nextStep} продолжить обсуждение. Требования — после ответа на эти вопросы.`,
   /** Блокирующих вопросов нет: переход к требованиям доступен. @param {string} task */
   readyForSpec: (task) => `${nextStep} продолжить обсуждение. Когда обсуждение завершено — предложить подготовить требования. Неблокирующие вопросы могут оставаться открытыми.\n\n`
-    + `Подготовить требования в новой сессии (рекомендуется): \`/clear\` или перезапуск окна, затем ${code(`/sf-spec ${task}`)}. `
+    + `Подготовить требования в новой сессии (рекомендуется): \`/clear\` или перезапуск окна, затем ${command('sf-spec', task)}. `
     + 'Или продолжить в этой сессии.',
-  otherTask: 'Другая задача — `/sf-grill` с описанием идеи.',
+  otherTask: `Другая задача — ${command('sf-grill')} с описанием идеи.`,
   /**
    * Последняя строка ответа: метка жирным, команда кодом; GigaCode подставляет её в строку ввода.
    * Только вместе с переходом; при блокирующих вопросах и выборе задачи её нет.
-   * @param {string} command
+   * @param {string} name короткое имя скилла @param {string} [task]
    */
-  tip: (command) => `**Tip:** Введите ${code(command)} чтобы продолжить`,
+  tip: (name, task) => `**Tip:** Введите ${command(name, task)} чтобы продолжить`,
   /** Путь из «Источников», которого нет. @param {string} path */
   missingSource: (path) => `${code(path)} — нет такого файла или папки`,
   /** Источник из подраздела «Не изучено». @param {Source} item */
@@ -139,21 +139,21 @@ export const texts = {
     ]),
     `${nextStep} поручить задание отдельному агенту, добавив, что нужно выяснить. Вопросы, не зависящие от источников, задавать сразу.`
   ].join('\n\n'),
-  /** sf-grill для задачи со spec.md, ещё не одобренной; дальше строка Tip с /sf-spec. @param {string} task */
+  /** sf-grill для задачи со spec.md, ещё не одобренной; дальше строка Tip для sf-spec. @param {string} task */
   discussionDone: (task) => `Задача ${code(task)}: обсуждение закончено, требования — в \`spec.md\`.\n\n`
-    + `${nextStep} работа с требованиями — ${code(`/sf-spec ${task}`)}.`,
+    + `${nextStep} работа с требованиями — ${command('sf-spec', task)}.`,
 
   // status: требования. Для sf-spec подходит задача, ещё не одобренная; новую задачу sf-spec не начинает.
   /** Названной задачи нет; и для sf-review. @param {string} task */
   noSuchTask: (task) => `Задачи ${code(task)} нет: не найден ${code(`docs/${task}/brainstorming.md`)}.\n\n`
-    + `${nextStep} выбрать существующую задачу или начать новую — \`/sf-grill\` с описанием идеи.`,
-  noSpecTasks: `Задач без одобренных требований нет.\n\n${nextStep} начать новую задачу — \`/sf-grill\` с описанием идеи.`,
+    + `${nextStep} выбрать существующую задачу или начать новую — ${command('sf-grill')} с описанием идеи.`,
+  noSpecTasks: `Задач без одобренных требований нет.\n\n${nextStep} начать новую задачу — ${command('sf-grill')} с описанием идеи.`,
   /** @param {string[]} tasks */
   chooseSpecTask: (tasks) => `Задач без одобренных требований несколько:\n\n${list(tasks.map(code))}\n\n`
     + `${nextStep} выбрать одну из них, затем \`status\` с её именем.`,
-  /** spec.md нет, а источники не изучены или вопросы блокируют; дальше строка Tip с /sf-grill. @param {string} task @param {string} reason */
+  /** spec.md нет, а источники не изучены или вопросы блокируют; дальше строка Tip для sf-grill. @param {string} task @param {string} reason */
   tooEarly: (task, reason) => `Задача ${code(task)}: требований ещё нет, обсуждение не закончено — ${reason}.\n\n`
-    + `${nextStep} продолжить обсуждение — ${code(`/sf-grill ${task}`)}.`,
+    + `${nextStep} продолжить обсуждение — ${command('sf-grill', task)}.`,
   /** Причина для tooEarly: есть неизученные или недоступные источники. */
   sourcesPending: 'не все источники изучены',
   /** Причина для tooEarly. @param {string[]} numbers */
@@ -169,25 +169,25 @@ export const texts = {
    * @param {string} task @param {string[]} questions открытые вопросы
    */
   specReady: (task, questions) => `${ready(`Задача ${code(task)}: требования в \`spec.md\`, проверки пройдены.`, questions, [])}\n\n`
-    + `${nextStep} предложить ${choice('«Проверить требования» (рекомендуется)', reviewCommand(task), task, questions, [])}`,
+    + `${nextStep} предложить ${choice('«Проверить требования» (рекомендуется)', command('sf-review', task), task, questions, [])}`,
 
   // status: одобренная задача. Все команды отвечают одинаково.
   /** Одобрено, сумма совпадает, препятствий одобрению нет. @param {string} task */
-  specApproved: (task) => `Задача ${code(task)}: требования одобрены, работа завершена.\n\nНовые сведения — ${code(`/sf-note ${task}`)}.`,
+  specApproved: (task) => `Задача ${code(task)}: требования одобрены, работа завершена.\n\nНовые сведения — ${command('sf-note', task)}.`,
   /** Одобрено, но мешают блокирующие замечания последнего раздела review.md; раньше вопросов. @param {string} task @param {string[]} remarks */
   approvedRemarks: (task, remarks) => `Задача ${code(task)}: требования одобрены, но в последней проверке блокирующие замечания: `
     + `${codes(remarks)} — одобрение не действует.\n\n`
-    + `${nextStep} поставить «${draftStatus}» и продолжить с замечаниями — ${reviewCommand(task)}.`,
+    + `${nextStep} поставить «${draftStatus}» и продолжить с замечаниями — ${command('sf-review', task)}.`,
   /** Одобрено, но открыты вопросы. @param {string} task @param {string[]} questions */
   approvedQuestions: (task, questions) => `Задача ${code(task)}: требования одобрены, но одобрение не подтверждено — `
-    + `открытые вопросы: ${codes(questions)}.\n\n${nextStep} ответ — через ${code(`/sf-note ${task}`)}. `
+    + `открытые вопросы: ${codes(questions)}.\n\n${nextStep} ответ — через ${command('sf-note', task)}. `
     + `Меняет смысл требований — поставить «${draftStatus}», поправить \`spec.md\` и одобрить заново.`,
   /** Одобрено, но сумма не совпадает: одобрение не действует, что бы ни изменилось (FR-24). @param {string} task */
   approvedChanged: (task) => `Задача ${code(task)}: \`spec.md\` изменён после одобрения — одобрение не действует.\n\n`
     + `${nextStep} поставить «${draftStatus}» — нужно повторное одобрение.`,
 
   // status: sf-note. Подходит любая задача, включая одобренные; ответ — как у команды этапа задачи.
-  noTasks: `Задач нет.\n\n${nextStep} начать новую задачу — \`/sf-grill\` с описанием идеи.`,
+  noTasks: `Задач нет.\n\n${nextStep} начать новую задачу — ${command('sf-grill')} с описанием идеи.`,
   /** @param {string[]} tasks */
   chooseAnyTask: (tasks) => `Задач несколько:\n\n${list(tasks.map(code))}\n\n`
     + `${nextStep} выбрать ту, к которой относятся сведения, затем \`status\` с её именем.`,
@@ -195,33 +195,33 @@ export const texts = {
   // status: проверка требований. Для sf-review подходит задача со spec.md, ещё не одобренная. Строки замечаний и после
   // проверки — общие для sf-spec и sf-review, различается путь: у sf-spec — команда, у sf-review — по touched и agent;
   // при touched — нет и разобранной проверке — сразу reviewStart. С путём «отдельным агентом» ниже идёт задание, «в новой сессии» — Tip.
-  /** Путь для sf-spec: путь выберет sf-review. */
-  reviewCommand,
+  /** Путь для sf-spec: путь выберет sf-review. @param {string} task */
+  reviewCommand: (task) => command('sf-review', task),
   /** touched — нет: контекст чистый. */
   reviewHere: 'здесь, в этой сессии',
   /** touched и agent — да. */
   reviewByAgent: 'отдельным агентом по заданию ниже',
   /** touched — да, agent — нет: в этой сессии проверка не предлагается (FR-17). @param {string} task */
-  reviewInNewSession: (task) => `в новой сессии: \`/clear\` или перезапуск окна, затем ${reviewCommand(task)}`,
+  reviewInNewSession: (task) => `в новой сессии: \`/clear\` или перезапуск окна, затем ${command('sf-review', task)}`,
   /** Задание отдельному агенту: проверка по скиллу, без status и без разбора. @param {string} task */
   reviewTask: (task) => `**Задание на проверку**\n\nЗагрузи скилл \`sf-review\` и проверь требования задачи ${code(task)} `
     + 'по его разделу «Проверка». `status` не вызывай. После `check` без ошибок закончи работу: '
     + 'замечания разберёт основной агент с пользователем.',
   noReviewTasks: 'Задач с неодобренными требованиями в `spec.md` нет.\n\n'
-    + `${nextStep} подготовить требования — \`/sf-spec\` — или начать новую задачу — \`/sf-grill\` с описанием идеи.`,
+    + `${nextStep} подготовить требования — ${command('sf-spec')} — или начать новую задачу — ${command('sf-grill')} с описанием идеи.`,
   /** @param {string[]} tasks */
   chooseReviewTask: (tasks) => `Задач с неодобренными требованиями в \`spec.md\` несколько:\n\n${list(tasks.map(code))}\n\n`
     + `${nextStep} выбрать одну из них, затем \`status\` с её именем.`,
-  /** Названная задача без spec.md; дальше строка Tip с /sf-spec. @param {string} task */
+  /** Названная задача без spec.md; дальше строка Tip для sf-spec. @param {string} task */
   noSpecYet: (task) => `Задача ${code(task)}: требований в \`spec.md\` ещё нет — проверять нечего.\n\n`
-    + `${nextStep} подготовить требования — ${code(`/sf-spec ${task}`)}.`,
+    + `${nextStep} подготовить требования — ${command('sf-spec', task)}.`,
   /** sf-review, проверку уже выбрали: её не было или, при touched — нет, всё разобрано. @param {string} task @param {string} way @param {string[]} questions @param {string[]} remarks */
   reviewStart: (task, way, questions, remarks) => `${ready(`Задача ${code(task)}: требования в \`spec.md\` готовы к проверке.`,
     questions, remarks)}\n\n${nextStep} проверить требования — ${way}.`,
   /** В последнем разделе review.md блокирующие замечания без решения (FR-18). @param {string} task @param {string[]} numbers */
   remarksBlocking: (task, numbers) => `Задача ${code(task)}: требования в \`spec.md\`, проверки пройдены. `
     + `Блокирующие замечания проверки без решения: ${codes(numbers)}.\n\n`
-    + `${nextStep} разобрать их с пользователем по одному — ${reviewCommand(task)}.`,
+    + `${nextStep} разобрать их с пользователем по одному — ${command('sf-review', task)}.`,
   /**
    * В последнем разделе есть замечания без решения, блокирующих среди них нет (FR-18, FR-20).
    * @param {string} task @param {string[]} numbers @param {string} way @param {string[]} questions @param {string[]} remarks отложенные блокирующие

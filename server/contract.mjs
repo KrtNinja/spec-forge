@@ -101,7 +101,7 @@ export const tool = {
       command: {
         type: 'string',
         enum: ['sf-grill', 'sf-spec', 'sf-review', 'sf-note'],
-        description: 'Для status: команда, с которой начата работа.'
+        description: 'Для status: короткое имя скилла без / и spec-forge:, например sf-note.'
       },
       touched: {
         type: 'boolean',

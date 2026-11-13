@@ -68,7 +68,7 @@ function named(name) {
   if (!validName.test(name)) return texts.badName(name);
   if (!isTask(name)) return existsSync(`docs/${name}`) ? texts.folderTaken(name) : texts.newTask(name);
   if (isApproved(readText(taskFile(name, 'spec.md')))) return requirements(name);
-  if (hasSpec(name)) return [texts.discussionDone(name), texts.tip(`/sf-spec ${name}`)].join('\n\n');
+  if (hasSpec(name)) return [texts.discussionDone(name), texts.tip('sf-spec', name)].join('\n\n');
   return discussion(name, []);
 }
 
@@ -94,11 +94,11 @@ function specStage(task) {
   const blocking = blockingQuestions(task);
   if (pending.length === 0 && blocking.length === 0) return texts.writeSpec(task);
   const reason = pending.length === 0 ? texts.blockedBy(blocking) : texts.sourcesPending;
-  return [texts.tooEarly(task, reason), texts.tip(`/sf-grill ${task}`)].join('\n\n');
+  return [texts.tooEarly(task, reason), texts.tip('sf-grill', task)].join('\n\n');
 }
 
 /**
- * sf-spec: пока проверки не было — проверить (рекомендуется) или одобрить; путь — команда /sf-review, путь выберет он.
+ * sf-spec: пока проверки не было — проверить (рекомендуется) или одобрить; путь — команда /spec-forge:sf-review, путь выберет он.
  * @param {string} task @returns {Offer}
  */
 const specOffer = (task) => ({
@@ -157,7 +157,7 @@ function review(task, flags) {
   if ([flags.touched, flags.agent].includes(undefined)) return { error: texts.noReviewFlags };
   if (task === '') return chooseReview(flags);
   if (!isTask(task)) return texts.noSuchTask(task);
-  if (!hasSpec(task)) return [texts.noSpecYet(task), texts.tip(`/sf-spec ${task}`)].join('\n\n');
+  if (!hasSpec(task)) return [texts.noSpecYet(task), texts.tip('sf-spec', task)].join('\n\n');
   return requirements(task, reviewOffer(task, flags));
 }
 
@@ -207,7 +207,7 @@ function noteStage(task) {
 function wayOf(task, { touched, agent }) {
   if (!touched) return { text: texts.reviewHere, tail: [] };
   if (agent) return { text: texts.reviewByAgent, tail: [texts.reviewTask(task)] };
-  return { text: texts.reviewInNewSession(task), tail: [texts.tip(`/sf-review ${task}`)] };
+  return { text: texts.reviewInNewSession(task), tail: [texts.tip('sf-review', task)] };
 }
 
 /**
@@ -247,7 +247,7 @@ function next(task) {
   if (unavailable.length !== 0) return { text: texts.unavailableSources(unavailable), tip: [] };
   if (pending.length !== 0) return { text: texts.studyTask(task, pending), tip: [] };
   const blocking = blockingQuestions(task);
-  if (blocking.length === 0) return { text: texts.readyForSpec(task), tip: [texts.tip(`/sf-spec ${task}`)] };
+  if (blocking.length === 0) return { text: texts.readyForSpec(task), tip: [texts.tip('sf-spec', task)] };
   return { text: texts.blockingQuestions(blocking), tip: [] };
 }
 
