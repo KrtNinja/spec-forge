@@ -65,11 +65,15 @@ function coverage() {
 // на исходное дерево. Команда не ищет корень через git (это вернуло бы исходное дерево)
 // и запускает только тесты продукта: проверки tools/ от кода продукта не зависят.
 // Файлы идут по одному, отдельным запуском mutator: так у каждого своя строка итогов.
+// Без имени файла проверяются все файлы продукта по очереди.
 function mutate() {
-  const productTests = tests.filter((file) => !file.startsWith('tools/'));
+  const file = process.argv[3];
+  if (file !== undefined && !product.includes(file)) throw new Error(`Нет такого файла продукта: ${file}`);
+  const productTests = tests.filter((name) => !name.startsWith('tools/'));
   const testCommand = ['node', '--test', '--test-reporter=./tools/mutation-reporter.mjs', ...productTests].join(' ');
   summary('| Файл | Мест | Убито | Выжило | Вышло за предел времени | Исходные тесты, с | Время, с |\n|---|---|---|---|---|---|---|');
-  process.exit(Math.max(0, ...product.map((file) => mutateFile(file, testCommand))));
+  const targets = file === undefined ? product : [file];
+  process.exit(Math.max(0, ...targets.map((target) => mutateFile(target, testCommand))));
 }
 
 /** @param {string} line */
@@ -86,6 +90,7 @@ function count(text, pattern) {
 /**
  * Мутации одного файла и строка итогов по нему. Числа мест берутся из вывода mutator,
  * запуски тестов — из журнала, который ведёт tools/mutation-reporter.mjs.
+ * Одновременных мутаций — по числу ядер: так mutator работает без --max-workers.
  * @param {string} file @param {string} testCommand
  * @returns {number} код завершения mutator
  */
@@ -95,7 +100,7 @@ function mutateFile(file, testCommand) {
   rmSync(log, { force: true });
   const started = Date.now();
   const result = spawnSync('mutator', [
-    '--no-coverage', '--mutate-all', '--max-workers', '2', '--test-command', testCommand, file
+    '--no-coverage', '--mutate-all', '--test-command', testCommand, file
   ], { env: { ...process.env, MUTATION_LOG: log }, stdio: ['ignore', 'pipe', 'inherit'], encoding: 'utf8', maxBuffer: 2 ** 28 });
   if (result.error) throw result.error;
   process.stdout.write(result.stdout);
@@ -113,5 +118,7 @@ switch (command) {
   case 'check': check(); break;
   case 'coverage': coverage(); break;
   case 'mutate': mutate(); break;
+  // Список для заданий mutation.yml: по заданию на файл.
+  case 'mutate-files': console.log(JSON.stringify(product)); break;
   default: throw new Error(`Неизвестная проверка: ${command}`);
 }

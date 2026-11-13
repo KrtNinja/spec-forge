@@ -9,7 +9,7 @@ const root = resolve(import.meta.dirname, '../..');
 
 /**
  * Запускает check.mjs во временном репозитории. Исполняемые файлы из files доступны по имени.
- * @param {Record<string, string>} files @param {string} command @param {Record<string, string>} [extra]
+ * @param {Record<string, string>} files @param {string | string[]} command @param {Record<string, string>} [extra] переменные окружения
  */
 function fixture(files, command, extra = {}) {
   const cwd = mkdtempSync(join(tmpdir(), 'spec-forge-check-'));
@@ -21,10 +21,11 @@ function fixture(files, command, extra = {}) {
     writeFileSync(join(cwd, 'package.json'), '{"type":"module"}');
     for (const [name, content] of Object.entries(files)) writeFileSync(join(cwd, name), content, { mode: 0o755 });
     execFileSync('git', ['add', 'tools', 'package.json', ...Object.keys(files)], { cwd });
+    /** @type {NodeJS.ProcessEnv} */
     const env = { ...process.env, PATH: `${cwd}:${process.env.PATH}`, ...extra };
     delete env.NODE_TEST_CONTEXT;
     if (!extra.GITHUB_STEP_SUMMARY) delete env.GITHUB_STEP_SUMMARY;
-    return spawnSync(process.execPath, [join(root, 'tools/check.mjs'), command], { cwd: join(cwd, 'tools'), env, encoding: 'utf8' });
+    return spawnSync(process.execPath, [join(root, 'tools/check.mjs'), ...[command].flat()], { cwd: join(cwd, 'tools'), env, encoding: 'utf8' });
   } finally {
     rmSync(cwd, { recursive: true, force: true });
   }
@@ -104,14 +105,16 @@ printf 'KILLED    %s:1 a -> b\nSURVIVED  %s:2 a -> b\n' "$file" "$file"
 exit 3
 `;
 
-test('Мутационный прогон: строка итогов по файлу и код завершения mutator', () => {
+const mutated = {
+  'value.js': 'export const value = 1;',
+  'value.test.js': 'import { test } from "node:test"; test("ok", () => {});',
+  mutator: fakeMutator
+};
+
+test('Мутационный прогон файла: строка итогов и код завершения mutator', () => {
   const summary = join(tmpdir(), `spec-forge-summary-${process.pid}.md`);
   try {
-    const result = fixture({
-      'value.js': 'export const value = 1;',
-      'value.test.js': 'import { test } from "node:test"; test("ok", () => {});',
-      mutator: fakeMutator
-    }, 'mutate', { GITHUB_STEP_SUMMARY: summary });
+    const result = fixture(mutated, ['mutate', 'value.js'], { GITHUB_STEP_SUMMARY: summary });
     assert.equal(result.status, 3, result.stdout + result.stderr);
     const row = /^\| value\.js \| 2 \| 1 \| 1 \| 1 \| \d+\.\d \| \d+ \|$/m;
     assert.match(result.stdout, row);
@@ -119,4 +122,23 @@ test('Мутационный прогон: строка итогов по фай
   } finally {
     rmSync(summary, { force: true });
   }
+});
+
+test('Мутационный прогон без имени файла проверяет все файлы продукта', () => {
+  const result = fixture({ ...mutated, 'other.js': 'export const other = 2;' }, 'mutate');
+  assert.equal(result.status, 3, result.stdout + result.stderr);
+  assert.match(result.stdout, /^\| other\.js \| 2 \|.*\n(.*\n)*\| value\.js \| 2 \|/m);
+});
+
+test('Мутационный прогон отклоняет файл не из продукта', () => {
+  const result = fixture(mutated, ['mutate', 'value.test.js']);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Нет такого файла продукта: value\.test\.js/);
+  assert.doesNotMatch(result.stdout, /KILLED/);
+});
+
+test('Список файлов для мутаций — рабочий код без тестов, tools и настроек', () => {
+  const result = fixture({ ...mutated, 'some.config.mjs': 'export default {};' }, 'mutate-files');
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, '["value.js"]\n');
 });
