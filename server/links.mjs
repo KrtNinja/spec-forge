@@ -73,7 +73,7 @@ export function leadsTo(scope, doc, target, number) {
 function anchoredNumber(scope, { file, anchor }) {
   const home = docsWithKinds(scope).find(([item]) => item.path === file);
   if (home === undefined || !recordAnchor.test(anchor)) return undefined;
-  return scope.numbers[home[1]].find((number) => number.toLowerCase() === anchor.toLowerCase()) ?? '';
+  return scope.numbers[home[1]].find((number) => number.toLowerCase() === anchor.toLowerCase()) || '';
 }
 
 /**
@@ -101,7 +101,11 @@ export function lowerAnchor(scope, doc, target) {
 
 /** Ссылки и картинки в строках по порядку, без других кусков. @param {string[]} lines @returns {Link[]} */
 const linksIn = (lines) => lines.flatMap((line) => [...line.matchAll(markdownLink)])
-  .flatMap(({ groups }) => (groups?.target === undefined ? [] : [/** @type {Link} */ (groups)]));
+  .flatMap(({ groups }) => {
+    // Именованные группы есть у каждого совпадения; target заполнен только у ссылки или картинки.
+    const link = /** @type {Link} */ (groups);
+    return link.target === undefined ? [] : [link];
+  });
 
 /**
  * Ошибки ссылок Markdown в строках: ссылка с номером записи ведёт не на неё, другая ссылка — в тупик или с якорем
