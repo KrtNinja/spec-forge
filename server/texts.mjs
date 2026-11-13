@@ -288,6 +288,8 @@ export const texts = {
    */
   wrongLink: (file, place, number, target) => `${where(file, place)} — ссылка ${code(number)} ведёт на ${code(target)}, `
     + 'а не на свою запись: исправит `link`',
+  /** Текст ссылки — не номер, якорь записи заглавными, а запись в этом файле есть. @param {string} file @param {string} place @param {string} target */
+  anchorCase: (file, place, target) => `${where(file, place)} — в ссылке ${code(target)} якорь записи заглавными: исправит \`link\``,
   /** @param {string} file */
   noStatusLine: (file) => `${code(file)} — нет строки статуса, например «${draftStatus}»`,
   /** @param {string} file */
