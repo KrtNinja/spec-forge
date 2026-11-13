@@ -12,14 +12,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  mutation:
-    name: Мутационные тесты
+  files:
+    name: Тесты и список файлов
     runs-on: ubuntu-latest
-    timeout-minutes: 120
-    env:
-      CRAPPER_SHA: 6fd92c4c9bcc56efb64a2f8743d5a2993bcfd42d
-      MUTATOR_SHA: a5a0cb803b66e0cdb8bf471b3b08af701d424a41
-      NODE_OPTIONS: --max-old-space-size=1024
+    timeout-minutes: 10
+    outputs:
+      files: ${{ steps.files.outputs.files }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -27,10 +25,35 @@ jobs:
           node-version: '22.5.1'
           cache: npm
           cache-dependency-path: tools/package-lock.json
+      - run: npm --prefix tools ci --ignore-scripts --no-audit --no-fund
+      - run: npm --prefix tools test
+      - id: files
+        run: echo "files=$(node tools/check.mjs mutate-files)" >> "$GITHUB_OUTPUT"
+
+  # По заданию на каждый файл продукта; задания идут одновременно.
+  # Упавшее задание не отменяет остальные: все выжившие мутации видны за один запуск.
+  mutation:
+    name: ${{ matrix.file }}
+    needs: files
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        file: ${{ fromJSON(needs.files.outputs.files) }}
+    env:
+      CRAPPER_SHA: 6fd92c4c9bcc56efb64a2f8743d5a2993bcfd42d
+      MUTATOR_SHA: a5a0cb803b66e0cdb8bf471b3b08af701d424a41
+      NODE_OPTIONS: --max-old-space-size=1024
+      FILE: ${{ matrix.file }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.5.1'
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: npm --prefix tools ci --ignore-scripts --no-audit --no-fund
       - name: Установка mutator
         shell: bash
         run: |
@@ -41,13 +64,25 @@ jobs:
             git -C "$RUNNER_TEMP/ub/$name" checkout --quiet "$sha"
           done
           pip install "$RUNNER_TEMP/ub/crapper" "$RUNNER_TEMP/ub/mutator"
-      - run: npm --prefix tools test
-      - name: Проверка всех мест мутаций
-        run: npm --prefix tools run mutate
+      - name: Проверка всех мест мутаций файла
+        run: node tools/check.mjs mutate "$FILE"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: mutation-reports
+          name: mutation-reports-${{ strategy.job-index }}
           include-hidden-files: true
           path: .metrics/mutate/
           if-no-files-found: warn
+
+  reports:
+    name: Общий набор отчётов
+    needs: mutation
+    if: always() && needs.mutation.result != 'skipped'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/upload-artifact/merge@v4
+        with:
+          name: mutation-reports
+          pattern: mutation-reports-*
+          delete-merged: true

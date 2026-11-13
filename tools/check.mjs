@@ -1,5 +1,7 @@
 // @ts-check
 import { execFileSync, spawnSync } from 'node:child_process';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 /** @param {string} command @param {string[]} args */
 function run(command, args) {
@@ -62,12 +64,55 @@ function coverage() {
 // mutator запускает команду в рабочей папке, где изменённый файл — копия, а остальное — ссылки
 // на исходное дерево. Команда не ищет корень через git (это вернуло бы исходное дерево)
 // и запускает только тесты продукта: проверки tools/ от кода продукта не зависят.
+// Файлы идут по одному, отдельным запуском mutator: так у каждого своя строка итогов.
+// Без имени файла проверяются все файлы продукта по очереди.
 function mutate() {
-  const productTests = tests.filter((file) => !file.startsWith('tools/'));
-  run('mutator', [
-    '--no-coverage', '--mutate-all', '--max-workers', '2',
-    '--test-command', ['node', '--test', ...productTests].join(' '), ...product
-  ]);
+  const file = process.argv[3];
+  if (file !== undefined && !product.includes(file)) throw new Error(`Нет такого файла продукта: ${file}`);
+  const productTests = tests.filter((name) => !name.startsWith('tools/'));
+  const testCommand = ['node', '--test', '--test-reporter=./tools/mutation-reporter.mjs', ...productTests].join(' ');
+  summary('| Файл | Мест | Убито | Выжило | Вышло за предел времени | Исходные тесты, с | Время, с |\n|---|---|---|---|---|---|---|');
+  const targets = file === undefined ? product : [file];
+  process.exit(Math.max(0, ...targets.map((target) => mutateFile(target, testCommand))));
+}
+
+/** @param {string} line */
+function summary(line) {
+  console.log(line);
+  if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${line}\n`);
+}
+
+/** @param {string} text @param {RegExp} pattern */
+function count(text, pattern) {
+  return (text.match(pattern) ?? []).length;
+}
+
+/**
+ * Мутации одного файла и строка итогов по нему. Числа мест берутся из вывода mutator,
+ * запуски тестов — из журнала, который ведёт tools/mutation-reporter.mjs.
+ * Одновременных мутаций — по числу ядер: так mutator работает без --max-workers.
+ * @param {string} file @param {string} testCommand
+ * @returns {number} код завершения mutator
+ */
+function mutateFile(file, testCommand) {
+  const log = resolve('.metrics/mutation-runs.log');
+  mkdirSync('.metrics', { recursive: true });
+  rmSync(log, { force: true });
+  const started = Date.now();
+  const result = spawnSync('mutator', [
+    '--no-coverage', '--mutate-all', '--test-command', testCommand, file
+  ], { env: { ...process.env, MUTATION_LOG: log }, stdio: ['ignore', 'pipe', 'inherit'], encoding: 'utf8', maxBuffer: 2 ** 28 });
+  if (result.error) throw result.error;
+  process.stdout.write(result.stdout);
+  const runs = existsSync(log) ? readFileSync(log, 'utf8') : '';
+  const killed = count(result.stdout, /^KILLED /gm);
+  const survived = count(result.stdout, /^SURVIVED /gm);
+  // Первый законченный запуск — исходные тесты. Его нет, если в файле нет мест мутаций.
+  const baseline = /^end (\d+)$/m.exec(runs)?.[1];
+  const baselineSeconds = baseline === undefined ? '—' : (Number(baseline) / 1000).toFixed(1);
+  const seconds = Math.round((Date.now() - started) / 1000);
+  summary(`| ${file} | ${killed + survived} | ${killed} | ${survived} | ${count(runs, /^start$/gm) - count(runs, /^end /gm)} | ${baselineSeconds} | ${seconds} |`);
+  return result.status ?? 1;
 }
 
 switch (command) {
@@ -75,5 +120,7 @@ switch (command) {
   case 'check': check(); break;
   case 'coverage': coverage(); break;
   case 'mutate': mutate(); break;
+  // Список для заданий mutation.yml: по заданию на файл.
+  case 'mutate-files': console.log(JSON.stringify(product)); break;
   default: throw new Error(`Неизвестная проверка: ${command}`);
 }
