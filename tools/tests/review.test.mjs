@@ -231,6 +231,19 @@ test('Пустой блок отличается от блока с пустой
   ]);
 });
 
+test('Вложенные и неограждённые образцы: перестановка строк вне перечней требует проверки разницы', () => {
+  for (const [start, prefix, fence] of [['1. Пункт\n\n', '    ', '```'], ['', '> ', '~~~'], ['', '    ', '']]) {
+    const old = `${start}${prefix}${fence}\n${prefix}Первая\n${prefix}Вторая\n${prefix}${fence}\n`;
+    const changed = old.replace(`${prefix}Первая\n${prefix}Вторая`, `${prefix}Вторая\n${prefix}Первая`);
+    const result = review({ 'rules/spec-forge.md': old }, { 'rules/spec-forge.md': changed });
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(items(result.stdout, 'Удалённые строки'), []);
+    assert.deepEqual(items(result.stdout, 'Изменённые образцы'), []);
+    assert.ok(result.stdout.includes('Перечень образцов ограничен блоками с ограждениями из обратных кавычек или тильд и отступом 0–3 пробела.'), result.stdout);
+    assert.ok(result.stdout.includes('Образцы внутри списков и цитат, а также без ограждений проверяйте по разнице.'), result.stdout);
+  }
+});
+
 test('Неизвестное основание — ошибка, а не пустой отчёт', () => {
   const result = review({}, {}, ['facts', 'no-such-branch']);
   assert.notEqual(result.status, 0);
