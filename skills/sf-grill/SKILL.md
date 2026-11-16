@@ -59,12 +59,14 @@ argument-hint: '[идея словами | имя задачи]'
 
 - Раунд показывай блоками до 4 вопросов, остальные — следующим блоком после ответа. Вариантов 2–4. Пояснение длиннее двух фраз — коротким сообщением перед блоком.
 - Раскрой участников, действия, условия, бизнес-правила, результаты и существенные исключения. Это проверка полноты, а не анкета: спрашивай то, что вытекает из идеи и ответов.
+- Вопрос вне границы бизнес-требований из правил Spec Forge ветку дерева не образует: в раунд не входит, обсуждение заканчивается без него.
+- «Технические детали» в `brainstorming.md`, если есть, — записи аналитика: читай как известные сведения, существующие записи не меняй, о них не расспрашивай и в требования не переноси.
 - Можешь предлагать недостающие возможности и объяснять их пользу.
 - После ответов на блок запиши решения в «Решения». Вопрос, записанный в `questions.md`, — пройденная ветка раунда. Тема не входит в задачу по решению пользователя — пункт в «Не входит в задачу».
 - Вопросов, которые можно задать сейчас, не осталось — вызови `status` и действуй по его ответу. Подготовить требования предлагай, только если он показал переход: «Обсуждение завершено. Подготовить документ с требованиями?» Варианты: в новой сессии (рекомендую), в этой сессии, продолжить обсуждение. Команду для новой сессии пользователь уже видит в ответе `status`. В этой сессии — запусти скилл `sf-spec`.
 
 <!-- grilling: начало (MIT, см. LICENSE-grilling) -->
-Interview the user relentlessly until you reach a shared understanding. Map this as a **design tree**: every decision branches into the decisions that hang off it.
+Interview the user per the rules above. Map this as a **design tree**: every decision branches into the decisions that hang off it.
 
 Work the tree in **rounds**. The **frontier** is every decision whose prerequisites are already settled: the questions you can ask _now_ without guessing at answers you haven't heard yet. Ask the whole frontier in one round and give your recommended answer for each question. Then wait for the user's answers before the next round.
 
@@ -76,5 +78,5 @@ Each round the user answers reshapes the tree: settled decisions push the fronti
 
 Finding _facts_ is your job, never the user's. When a frontier question needs a fact from the environment (filesystem, tools, etc.), get it through the study task from `status` per the rules above; don't ask the user for anything you could look up yourself. Don't block on it: a running exploration is an unsettled prerequisite, so only the questions downstream of it wait for the sub-agent to report; ask the rest of the frontier now. The _decisions_ are the user's: put each to them and wait.
 
-The session is done when the frontier is empty: every branch of the design tree visited, nothing left silently assumed. Then finish per the rules above.
+The session is done when the frontier is empty per the rules above. Then finish per the rules above.
 <!-- grilling: конец -->

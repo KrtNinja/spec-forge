@@ -9,6 +9,8 @@
 3. Ответ «yes» в знак согласия с рекомендацией — «Offer the answer choices per the rules above»: выбор из 2–4 вариантов.
 4. Завершение с подтверждением общего понимания — «Then finish per the rules above».
 5. Отдельный агент за фактами — «get it through the study task from `status` per the rules above».
+6. Неограниченное интервью — «Interview the user per the rules above».
+7. Обход всех веток без оставшихся допущений — «The session is done when the frontier is empty per the rules above».
 
 MIT License
 
