@@ -7,10 +7,10 @@
 import { existsSync } from 'node:fs';
 import {
   blockingValues, brainstormingHeadings, contextHeadings, decisionField, questionFields, questionStatuses, remarkDecisions,
-  remarkFields, remarkImportance, replacedField, requirementFields, sourcesHeading, specHeadings, tool
+  remarkFields, remarkImportance, replacedField, requirementFields, requirementsHeading, sourcesHeading, specHeadings, tool
 } from './contract.mjs';
 import { texts } from './texts.mjs';
-import { headings, listedSources, readText, taskFile, taskProblem } from './docs.mjs';
+import { headings, level, listedSources, readText, taskFile, taskProblem } from './docs.mjs';
 import { linkErrors } from './links.mjs';
 import { extraFields, field, fieldValues, kindOf, numbersIn, recordNumber } from './records.mjs';
 import { specNotes, statusErrors } from './spec.mjs';
@@ -132,6 +132,8 @@ function specErrors(spec, scope) {
   return [
     ...headingErrors(spec.path, specHeadings, spec.blocks.map((block) => block.heading)),
     ...statusErrors(spec.path, spec.text),
+    ...(scope.records.FR.length === 0 && spec.blocks.some((block) => block.heading === requirementsHeading)
+      ? [texts.noRequirements(spec.path)] : []),
     ...spec.blocks.flatMap((block) => blockErrors(spec, 'FR', block, scope))
   ];
 }
@@ -152,7 +154,11 @@ function blockErrors(doc, kind, block, scope) {
 function recordErrors(file, block, kind, scope) {
   const number = recordNumber(block, kind);
   const place = placeOf(scope, kind, block);
-  if (number === '') return [texts.badRecordHeading(file, block.heading, kind), ...references(file, place, block.lines, scope)];
+  if (number === '') {
+    const error = kind === 'FR' && level(block.heading) === 3
+      ? texts.badRequirementLevel(file, block.heading) : texts.badRecordHeading(file, block.heading, kind);
+    return [error, ...references(file, place, block.lines, scope)];
+  }
   const first = scope.records[kind].find((item) => recordNumber(item, kind) === number);
   return [
     ...(first === block ? [] : [texts.repeatedNumber(file, number)]),
@@ -185,7 +191,7 @@ function questionErrors(entry, scope) {
 }
 
 /**
- * Оба поля обязательны; в заполненном «Основании» — номер решения D, и ни одно названное решение не заменено.
+ * Пример необязателен; в обязательном «Основании» — номер решения D, и ни одно названное решение не заменено.
  * @param {Entry} entry @param {Scope} scope
  */
 function requirementErrors(entry, scope) {
@@ -194,7 +200,7 @@ function requirementErrors(entry, scope) {
   const basis = field(entry.lines, requirementFields.basis);
   const decisions = numbersIn([basis]).filter((item) => item.startsWith('D-'));
   return [
-    ...fieldsErrors(entry, names, names),
+    ...fieldsErrors(entry, names, [requirementFields.basis]),
     ...(basis !== '' && decisions.length === 0 ? [texts.noBasisDecision(file, number)] : []),
     ...decisions.filter((item) => scope.replaced.includes(item)).map((item) => texts.replacedBasis(file, number, item))
   ];

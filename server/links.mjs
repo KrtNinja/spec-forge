@@ -4,7 +4,7 @@
 import { existsSync } from 'node:fs';
 import { posix } from 'node:path';
 import { texts } from './texts.mjs';
-import { numberPattern } from './records.mjs';
+import { kindOf, numberPattern, recordNumber } from './records.mjs';
 import { docsWithKinds, homeOf, recordCount } from './task.mjs';
 
 /** @typedef {import('./task.mjs').Scope} Scope */
@@ -34,8 +34,8 @@ const numberText = new RegExp(`^(\`?)(${numberPattern})\\1$`);
 /** Адрес со схемой: `https:`, `mailto:`. */
 const external = /^[a-z][a-z\d+.-]*:/i;
 
-/** Якорь записи: `#d-07`, `#q-01`, `#fr-03`, `#r-02`. */
-const recordAnchor = new RegExp(`^${numberPattern}$`, 'i');
+/** Якорь записи; у FR после номера — название. Прежний якорь FR тоже проверяется, чтобы показать ошибку. */
+const recordAnchor = /^(?:[DQR]-\d+|FR-\d+(?:-[\p{L}\p{N}-]+)?)$/iu;
 
 /** Номер записи в тексте ссылки без обратных апострофов; текст другой — пусто. @param {string} text */
 export function linkNumber(text) {
@@ -52,17 +52,24 @@ function resolve(doc, target) {
   return { file: path === '' ? doc : posix.join(posix.dirname(doc), path), anchor: anchor.join('#') };
 }
 
+/** Якорь записи: у FR — из заголовка с названием, у D, Q и R — из номера. @param {Scope} scope @param {string} number */
+function anchorOf(scope, number) {
+  if (kindOf(number) !== 'FR') return number.toLowerCase();
+  const block = scope.records.FR.find((item) => recordNumber(item, 'FR') === number);
+  return block ? block.heading.slice(5).replaceAll('`', '').toLowerCase().replaceAll(' ', '-') : '';
+}
+
 /** Правильный адрес ссылки на запись из документа doc: в своём файле — только якорь. @param {Scope} scope @param {string} doc @param {string} number */
 export function recordTarget(scope, doc, number) {
   const home = homeOf(scope, number).path;
-  const anchor = `#${number.toLowerCase()}`;
+  const anchor = `#${anchorOf(scope, number)}`;
   return home === doc ? anchor : `${posix.relative(posix.dirname(doc), home)}${anchor}`;
 }
 
 /** Ссылка на запись ведёт на неё: на её файл, в том числе по имени из своего файла, и на её якорь. @param {Scope} scope @param {string} doc @param {string} target @param {string} number */
 export function leadsTo(scope, doc, target, number) {
   const { file, anchor } = resolve(doc, target);
-  return file === homeOf(scope, number).path && anchor === number.toLowerCase();
+  return file === homeOf(scope, number).path && anchor === anchorOf(scope, number);
 }
 
 /**
@@ -73,7 +80,7 @@ export function leadsTo(scope, doc, target, number) {
 function anchoredNumber(scope, { file, anchor }) {
   const home = docsWithKinds(scope).find(([item]) => item.path === file);
   if (home === undefined || !recordAnchor.test(anchor)) return undefined;
-  return scope.numbers[home[1]].find((number) => number.toLowerCase() === anchor.toLowerCase()) || '';
+  return scope.numbers[home[1]].find((number) => anchorOf(scope, number) === anchor.toLowerCase()) || '';
 }
 
 /**
@@ -95,8 +102,8 @@ function isDead(scope, doc, target) {
 export function lowerAnchor(scope, doc, target) {
   const address = resolve(doc, target);
   const number = anchoredNumber(scope, address);
-  if (!number || address.anchor === number.toLowerCase()) return '';
-  return `${target.slice(0, -address.anchor.length)}${number.toLowerCase()}`;
+  if (!number || address.anchor === anchorOf(scope, number)) return '';
+  return `${target.slice(0, -address.anchor.length)}${anchorOf(scope, number)}`;
 }
 
 /** Ссылки и картинки в строках по порядку, без других кусков. @param {string[]} lines @returns {Link[]} */

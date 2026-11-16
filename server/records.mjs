@@ -1,10 +1,11 @@
 // @ts-check
-// Записи D, Q, FR и R: номер в заголовке, поля «- Поле: значение», упоминания номеров в тексте.
+// Записи D, Q, FR и R: номер в заголовке, поля и упоминания номеров в тексте. У FR — название,
+// необязательный пример цитатой и основание в sub/sup; остальные записи — с полями «- Поле: значение».
 // Решения D — подразделы «Решений» brainstorming.md, вопросы Q — разделы questions.md, кроме первого уровня,
 // требования FR — подразделы «Требований» spec.md, замечания R — разделы _work/review.md третьего уровня и ниже.
 import {
   blockingValues, decisionsHeading, questionFields, questionStatuses, remarkDecisions, remarkFields, remarkImportance,
-  requirementsHeading
+  requirementFields, requirementsHeading
 } from './contract.mjs';
 import { level, part } from './docs.mjs';
 
@@ -13,6 +14,15 @@ import { level, part } from './docs.mjs';
 
 /** Номер: две цифры и больше, без лишних нулей впереди. */
 const digits = '(?:0[1-9]|[1-9]\\d+)';
+
+/** Заголовок FR: номер в обратных апострофах и название с одиночными пробелами. */
+const requirementHeading = new RegExp(`^#### \`(FR-${digits})\` [\\p{L}\\p{N}-]+(?: [\\p{L}\\p{N}-]+)*$`, 'u');
+
+/** Обрамление полей FR; остальные поля читаются как пункты списка. */
+const requirementMarks = new Map([
+  [requirementFields.example, ['> ', '']],
+  [requirementFields.basis, ['<sub><sup>', '</sup></sub>']]
+]);
 
 /** Номер записи любого вида: вид, дефис и цифры. */
 export const numberPattern = '(?:FR|[DQR])-\\d+';
@@ -39,9 +49,10 @@ export function questionBlocks(list) {
   return list.filter((block) => level(block.heading) > 1);
 }
 
-/** Записи-требования: подразделы «Требований» с любыми заголовками. @param {Block[]} list разделы spec.md */
+/** Записи FR: четвёртый уровень и ниже; третий с номером FR тоже проверяется как ошибочная запись. @param {Block[]} list */
 export function requirementBlocks(list) {
-  return part(list, requirementsHeading).filter((block) => block.heading !== requirementsHeading);
+  return part(list, requirementsHeading).filter((block) => level(block.heading) > 3
+    || (level(block.heading) === 3 && numbersIn([block.heading]).some((number) => number.startsWith('FR-'))));
 }
 
 /** Записи-замечания: разделы с любыми заголовками третьего уровня и ниже. @param {Block[]} list разделы _work/review.md */
@@ -57,8 +68,9 @@ export function latestRemarks(list) {
   return list.reduce((latest, block) => (level(block.heading) < 3 ? [] : [...latest, block]), /** @type {Block[]} */ ([]));
 }
 
-/** Номер записи по заголовку вида `### D-07`; заголовок другой — пусто. @param {Block} block @param {Kind} kind */
+/** Номер по заголовку своего вида; заголовок неверен — пусто. @param {Block} block @param {Kind} kind */
 export function recordNumber(block, kind) {
+  if (kind === 'FR') return requirementHeading.exec(block.heading)?.[1] || '';
   return new RegExp(`^### ${kind}-${digits}$`).test(block.heading) ? block.heading.slice(4) : '';
 }
 
@@ -70,10 +82,12 @@ export function numbersIn(lines) {
   return [...new Set(lines.join('\n').replace(address, ' ').match(mention))];
 }
 
-/** Значения поля «- Поле: значение» по порядку, без пробелов по краям. @param {string[]} lines @param {string} name */
+/** Значения поля своего формата по порядку, без пробелов по краям. @param {string[]} lines @param {string} name */
 export function fieldValues(lines, name) {
-  const prefix = `- ${name}:`;
-  return lines.filter((line) => line.startsWith(prefix)).map((line) => line.slice(prefix.length).trim());
+  const [opening, ending] = requirementMarks.get(name) || ['- ', ''];
+  const prefix = `${opening}${name}:`;
+  return lines.filter((line) => line.startsWith(prefix) && line.trimEnd().endsWith(ending))
+    .map((line) => line.trimEnd().slice(prefix.length, ending === '' ? undefined : -ending.length).trim());
 }
 
 /** Пункт «- Имя: значение»: за двоеточием пробел или конец строки; `- https://…` полем не считается. */
