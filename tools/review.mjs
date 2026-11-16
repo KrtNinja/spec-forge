@@ -1,6 +1,6 @@
 // @ts-check
 // Помощник ревью изменений. Только читает репозиторий и печатает отчёт.
-//   node tools/review.mjs facts [основание] — объём контекста модели и ссылки случаев на требования;
+//   node tools/review.mjs facts [основание] — контекст, ссылки случаев, удалённые строки и изменённые образцы;
 //     сравнивается общий предок основания (по умолчанию main) и текущей версии с файлами в рабочей папке.
 //   node tools/review.mjs quotes <файл отчёта> — стоят ли цитаты отчёта ревью в названных строках файлов.
 import { execFileSync } from 'node:child_process';
@@ -137,10 +137,66 @@ function references() {
   ];
 }
 
+/** Блоки между ``` или ~~~ с отступом 0–3 пробела; вложенность не разбирается. @param {string} text */
+function blocks(text) {
+  const lines = text.replace(/\r\n/g, '\n').split('\n');
+  if (lines.at(-1) === '') lines.pop();
+  const result = [];
+  for (let index = 0; index < lines.length; index++) {
+    const open = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(lines[index]);
+    if (!open || (open[1][0] === '`' && open[2].includes('`'))) continue;
+    const start = index;
+    const close = new RegExp(`^ {0,3}${open[1][0]}{${open[1].length},}[ \\t]*$`);
+    while (++index < lines.length && !close.test(lines[index])) { /* До конца блока или файла. */ }
+    const content = lines.slice(start + 1, index);
+    result.push({ line: start + 1, text: content.map((line) => `${line}\n`).join(''), first: content[0] ?? '' });
+  }
+  return result;
+}
+
+/** Совпавшие по содержимому блоки исключаются попарно: перенос не правка, лишняя копия — новый блок.
+ * @param {string} path @param {string} was @param {string} current
+ */
+function changedBlocks(path, was, current) {
+  const added = blocks(current);
+  const removed = blocks(was).filter((block) => {
+    const index = added.findIndex((other) => other.text === block.text);
+    if (index === -1) return true;
+    added.splice(index, 1);
+    return false;
+  });
+  return [
+    ...removed.map((block) => `\`${path}:${block.line}\` (основание) — ${block.first}`),
+    ...added.map((block) => `\`${path}:${block.line}\` (рабочая версия) — ${block.first}`)
+  ];
+}
+
+function instructions() {
+  /** @type {string[]} */
+  const removed = [];
+  const examples = [];
+  for (const path of [rules, ...skills().map((name) => `skills/${name}/SKILL.md`)]) {
+    const [was, current] = [before(path), now(path)];
+    const kept = new Set(current.split('\n').map(squeeze));
+    was.split('\n').map(squeeze).forEach((line, index) => {
+      if (line && !kept.has(line)) removed.push(`\`${path}:${index + 1}\` — ${line}`);
+    });
+    examples.push(...changedBlocks(path, was, current));
+  }
+  return [
+    '## Изменения инструкций',
+    ...list('Удалённые строки инструкций (номера в основании)', removed),
+    '',
+    'Перечень образцов ограничен блоками с ограждениями из обратных кавычек или тильд и отступом 0–3 пробела.',
+    'Образцы внутри списков и цитат, а также без ограждений проверяйте по разнице.',
+    ...list('Изменённые образцы (номер начала блока и первая строка содержимого)', examples)
+  ];
+}
+
 /** @param {string} name */
 function facts(name) {
   base = baseCommit(name);
-  console.log([`# Факты для ревью: основание ${base.slice(0, 7)}`, '', ...context(), '', ...references()].join('\n'));
+  console.log([`# Факты для ревью: основание ${base.slice(0, 7)}`, '', ...context(), '', ...instructions(), '', ...references()].join('\n'));
 }
 
 /** Пробелы подряд — один пробел, по краям — нет: отступы и выравнивание цитате не мешают. @param {string} text */
