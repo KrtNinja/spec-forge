@@ -128,8 +128,9 @@ function decisionsOf(scope, number) {
 export function dependentsOf(scope, number) {
   if (!scope.numbers.D.includes(number) && !scope.numbers.Q.includes(number)) return undefined;
   const decisions = decisionsOf(scope, number);
-  return headingNumbers(scope.records.FR.filter((block) => numbersIn([field(block.lines, requirementFields.basis)])
-    .some((item) => decisions.includes(item))));
+  const requirements = scope.records.FR.filter((block) => numbersIn([field(block.lines, requirementFields.basis)])
+    .some((item) => decisions.includes(item)));
+  return numbers(requirements, 'FR');
 }
 
 /** Следующие свободные номера: D, Q, а если есть spec.md — FR, если есть _work/review.md — R. @param {Scope} scope */
