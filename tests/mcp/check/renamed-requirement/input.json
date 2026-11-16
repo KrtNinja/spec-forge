@@ -1,0 +1,11 @@
+{
+  "when": "переименованный FR с ё, цифрой и дефисом: check указывает прежний якорь в questions.md и _work/review.md, не разрешает одобрение",
+  "refs": [
+    "FR-25",
+    "sf-spec/design.md: Вид spec.md"
+  ],
+  "call": {
+    "action": "check",
+    "task": "order-search"
+  }
+}

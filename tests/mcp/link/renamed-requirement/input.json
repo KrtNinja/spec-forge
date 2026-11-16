@@ -1,0 +1,11 @@
+{
+  "when": "переименованный FR с ё, цифрой и дефисом: link исправляет ссылки из questions.md и _work/review.md и ставит ссылку D внутри sub/sup; заголовки и обычный текст не меняются",
+  "refs": [
+    "FR-25",
+    "sf-spec/design.md: Вид spec.md"
+  ],
+  "call": {
+    "action": "link",
+    "task": "order-search"
+  }
+}

@@ -8,7 +8,11 @@ const nextStep = '**Дальше:**';
 /** @typedef {import('./contract.mjs').Source} Source */
 
 /** @param {string} value */
-const code = (value) => `\`${value}\``;
+const code = (value) => {
+  const ticks = '`'.repeat(Math.max(0, ...[...value.matchAll(/`+/g)].map(([run]) => run.length)) + 1);
+  const body = /^`|`$/.test(value) ? ` ${value} ` : value;
+  return `${ticks}${body}${ticks}`;
+};
 
 /** @param {string[]} items */
 const list = (items) => items.map((item) => `- ${item}`).join('\n');
@@ -254,8 +258,16 @@ export const texts = {
   badSourceLine: (file, line) => `${code(file)} — в «Источниках» строка «${line}» не начинается с пути в обратных апострофах или со ссылки`,
   /** @param {string} file @param {string} heading */
   sourceSubheading: (file, heading) => `${code(file)} — в «Источниках» подзаголовок ${code(heading)}: пункты под ним не считаются источниками`,
-  /** Заголовок там, где должны быть только записи. @param {string} file @param {string} heading @param {'D' | 'Q' | 'FR' | 'R'} kind */
-  badRecordHeading: (file, heading, kind) => `${code(file)} — заголовок ${code(heading)}: нужен только номер записи, например ${code(`### ${kind}-01`)}`,
+  /** Заголовок записи не соответствует образцу своего вида. @param {string} file @param {string} heading @param {'D' | 'Q' | 'FR' | 'R'} kind */
+  badRecordHeading: (file, heading, kind) => `${code(file)} — заголовок ${code(heading)}: `
+    + (kind === 'FR'
+      ? 'нужны номер в обратных апострофах и название, например ``#### `FR-01` Поиск заказа``; '
+        + 'в названии — буквы, цифры, пробелы и дефис, слова через один пробел'
+      : `нужен только номер записи, например ${code(`### ${kind}-01`)}`),
+  /** FR на уровне темы не должен выпадать из проверки. @param {string} file @param {string} heading */
+  badRequirementLevel: (file, heading) => `${code(file)} — заголовок ${code(heading)}: запись FR — заголовок четвёртого уровня`,
+  /** Темы и их текст не заменяют записи FR. @param {string} file */
+  noRequirements: (file) => `${code(file)} — в «Требованиях» нет записей FR`,
   /** @param {string} file @param {string} number */
   repeatedNumber: (file, number) => `${code(file)} — номер ${code(number)} повторяется`,
   /** Поля нет или оно пустое. @param {string} file @param {string} number @param {string} field */
@@ -274,20 +286,11 @@ export const texts = {
     + 'но не упомянут в «Не входит в задачу» `brainstorming.md`',
   /** Отложенное замечание, которого не называет ни один вопрос (FR-19). @param {string} file @param {string} number */
   noQuestion: (file, number) => `${code(file)}, ${code(number)} — замечание отложено, но ни один вопрос \`Q-…\` его не называет`,
-  /**
-   * Упомянут номер, которого нет среди записей; в _work/review.md номер FR — не ошибка: требование могли удалить.
-   * @param {string} file @param {string} place номер записи или заголовок раздела @param {string} number
-   */
+  /** Номера нет; удалённые FR в review.md допустимы. @param {string} file @param {string} place @param {string} number */
   deadReference: (file, place, number) => `${where(file, place)} — нет записи ${code(number)}`,
-  /**
-   * Ссылка Markdown на файл, которого нет, или на запись, которой нет в этом файле. Внешние адреса не проверяются.
-   * @param {string} file @param {string} place @param {string} target адрес ссылки как записан
-   */
+  /** Файла или записи нет; внешние адреса не проверяются. @param {string} file @param {string} place @param {string} target */
   deadLink: (file, place, target) => `${where(file, place)} — ссылка ${code(target)} ведёт в тупик`,
-  /**
-   * Текст ссылки — номер записи, а адрес — не её место в документе задачи.
-   * @param {string} file @param {string} place @param {string} number @param {string} target адрес ссылки как записан
-   */
+  /** Номер записи ведёт не на неё. @param {string} file @param {string} place @param {string} number @param {string} target */
   wrongLink: (file, place, number, target) => `${where(file, place)} — ссылка ${code(number)} ведёт на ${code(target)}, `
     + 'а не на свою запись: исправит `link`',
   /** Текст ссылки — не номер, якорь записи заглавными, а запись в этом файле есть. @param {string} file @param {string} place @param {string} target */
@@ -315,10 +318,7 @@ export const texts = {
    * отложенные — и у черновика, и у строки одобрения: одобрение не подтверждается.
    */
   approvalBlocked: blocked,
-  /**
-   * Одобрено, сумма совпадает, препятствий одобрению нет (FR-22): ссылки на документы, а не пути.
-   * @param {string} spec @param {string} questions нет questions.md — пусто
-   */
+  /** Одобрено по FR-22: ссылки на документы. @param {string} spec @param {string} questions нет questions.md — пусто */
   approved: (spec, questions) => `Документ с требованиями одобрен: ${fileLink(spec)}.`
     + (questions === '' ? '' : `\n\nВопросы и ответы: ${fileLink(questions)}.`)
     + `\n\n${nextStep} предложить закоммитить папку задачи ${code(spec.slice(0, spec.lastIndexOf('/') + 1))}.`,

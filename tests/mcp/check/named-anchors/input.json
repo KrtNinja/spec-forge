@@ -1,0 +1,13 @@
+{
+  "when": "FR с ё, цифрой и дефисом, основание и ссылки с вычисленным якорем из questions.md и _work/review.md верны; пример и тема не нужны, одобрение доступно",
+  "refs": [
+    "FR-14",
+    "FR-21",
+    "FR-25",
+    "sf-spec/design.md: Вид spec.md"
+  ],
+  "call": {
+    "action": "check",
+    "task": "order-search"
+  }
+}
