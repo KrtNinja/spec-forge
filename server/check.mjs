@@ -6,11 +6,11 @@
 // поля в порядке образца, связь с другим файлом, упоминания номеров, ссылки Markdown.
 import { existsSync } from 'node:fs';
 import {
-  blockingValues, brainstormingHeadings, contextHeadings, decisionField, questionFields, questionStatuses, remarkDecisions,
-  remarkFields, remarkImportance, replacedField, requirementFields, requirementsHeading, sourcesHeading, specHeadings, tool
+  blockingValues, brainstormingHeadings, contextHeadings, decisionField, failedHeading, questionFields, questionStatuses, remarkDecisions,
+  remarkFields, remarkImportance, replacedField, requirementFields, requirementsHeading, sourcesHeading, specHeadings, studiedHeading, tool
 } from './contract.mjs';
 import { texts } from './texts.mjs';
-import { headings, level, listedSources, readText, taskFile, taskProblem } from './docs.mjs';
+import { headings, level, listedSources, mentionedKeys, readText, section, taskFile, taskProblem } from './docs.mjs';
 import { linkErrors } from './links.mjs';
 import { extraFields, field, fieldValues, kindOf, numbersIn, recordNumber } from './records.mjs';
 import { specNotes, statusErrors } from './spec.mjs';
@@ -270,11 +270,15 @@ function missingNumbers(file, lines, scope) {
 }
 
 /**
- * Каждый заголовок заготовки — ровно один раз; порядок не проверяется.
+ * Каждый заголовок заготовки — ровно один раз; в непустых пунктах списков источник распознаётся как для status.
  * Файла нет — изучения ещё не было, это не ошибка.
  * @param {string} file
  */
 function contextErrors(file) {
   if (!existsSync(file)) return [];
-  return headingErrors(file, contextHeadings, headings(readText(file)));
+  const text = readText(file);
+  const sources = [studiedHeading, failedHeading].flatMap((heading) => section(text, heading)
+    .filter((line) => /^\s*-\s+\S/.test(line) && mentionedKeys([line]).length === 0)
+    .map((line) => texts.badContextSource(file, heading, line.trim())));
+  return [...headingErrors(file, contextHeadings, headings(text)), ...sources];
 }
