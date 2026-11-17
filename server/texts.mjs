@@ -209,6 +209,8 @@ export const texts = {
   repeatedHeading: (file, heading) => `${code(file)} — заголовок ${code(heading)} повторяется`,
   /** Непустая строка «Источников» — не пункт «- », начинающийся с источника. @param {string} file @param {string} line без отступов по краям */
   badSourceLine: (file, line) => `${code(file)} — в «Источниках» строка «${line}» не начинается с пути в обратных апострофах или со ссылки`,
+  /** @param {string} file @param {string} heading @param {string} line */
+  badContextSource: (file, heading, line) => `${code(file)}, ${code(heading)} — в строке «${line}» источник не распознан: заключите путь в обратные апострофы или укажите ссылку`,
   /** @param {string} file @param {string} heading */
   sourceSubheading: (file, heading) => `${code(file)} — в «Источниках» подзаголовок ${code(heading)}: пункты под ним не считаются источниками`,
   /** Заголовок записи не соответствует образцу своего вида. @param {string} file @param {string} heading @param {'D' | 'Q' | 'FR' | 'R'} kind */
@@ -292,7 +294,6 @@ export const texts = {
   linkWriteFailed: (file, written) => `Не удалось записать ${code(file)}. Работа со ссылками остановлена.\n\n`
     + (written.length === 0 ? 'До ошибки ни один файл не записан.' : `До ошибки записаны: ${codes(written)}.`)
     + '\n\nПроверьте указанный файл и возможность записи, затем повторите `link`.',
-
   /** @param {number} added @param {number} fixed */
   linked: (added, fixed) => `Ссылок проставлено: ${added}, исправлено: ${fixed}.`,
   /** Ссылки, которые не поставить и не исправить. @param {string[]} lines */
