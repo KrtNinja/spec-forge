@@ -2,65 +2,12 @@
 // Все тексты ответов spec_forge, которые видит пользователь. Меняются только в PR критериев, как и договор.
 // Ответ собирается из этих текстов: абзацы разделяются пустой строкой.
 import { contextHeadings, draftStatus, specLimit } from './contract.mjs';
-
-const nextStep = '**Дальше:**';
+import {
+  blocked, choice, code, codes, command, fileLink, grouped, list, next, nextStep, ready, remarkCard, remarkLine, source, where
+} from './text-parts.mjs';
 
 /** @typedef {import('./contract.mjs').Source} Source */
-
-/** @param {string} value */
-const code = (value) => {
-  const ticks = '`'.repeat(Math.max(0, ...[...value.matchAll(/`+/g)].map(([run]) => run.length)) + 1);
-  const body = /^`|`$/.test(value) ? ` ${value} ` : value;
-  return `${ticks}${body}${ticks}`;
-};
-
-/** @param {string[]} items */
-const list = (items) => items.map((item) => `- ${item}`).join('\n');
-
-/** @param {string[]} values */
-const codes = (values) => values.map(code).join(', ');
-
-/** @param {string[]} numbers */
-const next = (numbers) => `Следующие номера: ${codes(numbers)}.`;
-
-/** Ссылка Markdown на файл от корня проекта: имя файла — текстом. @param {string} path */
-const fileLink = (path) => `[${path.slice(path.lastIndexOf('/') + 1)}](${path})`;
-
-/** Путь — кодом, ссылка — как есть. @param {Source} item */
-const source = (item) => ('path' in item ? code(item.path) : item.link);
-
-/** Число с пробелами между разрядами: 10 001. @param {number} value */
-const grouped = (value) => String(value).replace(/\B(?=(\d{3})+$)/g, ' ');
-
-/**
- * Где найдено: в записи — её номер, вне записей — заголовок раздела без знаков `#`.
- * @param {string} file @param {string} place номер записи или заголовок раздела целиком
- */
-const where = (file, place) => (place.startsWith('#') ? `${code(file)}, «${place.replace(/^#+ /, '')}»` : `${code(file)}, ${code(place)}`);
-
-/** Имя команды GigaCode с необязательной задачей. @param {string} name @param {string} [task] */
-const command = (name, task = '') => code(`/spec-forge:${name}${task === '' ? '' : ` ${task}`}`);
-
-/** Что мешает одобрению; хоть один список не пуст. @param {string[]} questions открытые @param {string[]} remarks блокирующие замечания */
-const blocked = (questions, remarks) => `**Одобрить нельзя** — ${[
-  ...(questions.length === 0 ? [] : [`открытые вопросы: ${codes(questions)}`]),
-  ...(remarks.length === 0 ? [] : [`блокирующие замечания: ${codes(remarks)}`])
-].join('; ')}.`;
-
-/** Состояние и препятствия одобрению, если они есть. @param {string} state @param {string[]} questions @param {string[]} remarks */
-const ready = (state, questions, remarks) => (questions.length + remarks.length === 0 ? state : `${state} ${blocked(questions, remarks)}`);
-
-/**
- * Вариант проверки ИИ с путём и что предложить рядом: открыты вопросы — разобрать их; одни отложенные блокирующие
- * замечания — ничего, их снимает только новая проверка; иначе — одобрить.
- * @param {string} option @param {string} way @param {string} task @param {string[]} questions @param {string[]} remarks
- */
-function choice(option, way, task, questions, remarks) {
-  if (questions.length > 0) {
-    return `${option} — ${way} — или разобрать открытые вопросы. Ответ бизнеса или разработчика — через ${command('sf-note', task)}.`;
-  }
-  return remarks.length > 0 ? `${option} — ${way}.` : `${option} — ${way} — или «Одобрить» строкой из \`check\`.`;
-}
+/** @typedef {import('./contract.mjs').Remark} Remark */
 
 export const texts = {
   // Вызов не удался (isError).
@@ -222,18 +169,24 @@ export const texts = {
   /** sf-review, проверку уже выбрали: её не было или, при touched — нет, всё разобрано. @param {string} task @param {string} way @param {string[]} questions @param {string[]} remarks */
   reviewStart: (task, way, questions, remarks) => `${ready(`Задача ${code(task)}: требования в \`spec.md\` готовы к проверке.`,
     questions, remarks)}\n\n${nextStep} проверить требования — ${way}.`,
-  /** В последнем разделе review.md блокирующие замечания без решения (FR-18). @param {string} task @param {string[]} numbers */
-  remarksBlocking: (task, numbers) => `Задача ${code(task)}: требования в \`spec.md\`, проверки пройдены. `
-    + `Блокирующие замечания проверки без решения: ${codes(numbers)}.\n\n`
-    + `${nextStep} разобрать их с пользователем по одному — ${command('sf-review', task)}.`,
   /**
-   * В последнем разделе есть замечания без решения, блокирующих среди них нет (FR-18, FR-20).
-   * @param {string} task @param {string[]} numbers @param {string} way @param {string[]} questions @param {string[]} remarks отложенные блокирующие
+   * В последнем разделе review.md блокирующие замечания без решения (FR-18): номера всех и блок первого из них —
+   * вопрос о нём агент задаёт сразу под ответом. Одинаково для sf-spec и sf-review.
+   * @param {string} task @param {string[]} numbers @param {Remark} first первое из них
    */
-  remarksOpen: (task, numbers, way, questions, remarks) => `${ready(`Задача ${code(task)}: требования в \`spec.md\`, `
-    + `проверки пройдены. Замечания проверки без решения: ${codes(numbers)}.`, questions, remarks)}\n\n`
+  remarksBlocking: (task, numbers, first) => `Задача ${code(task)}: требования в \`spec.md\`, проверки пройдены. `
+    + `Блокирующие замечания проверки без решения: ${codes(numbers)}.\n\n${remarkCard(first)}\n\n`
+    + `${nextStep} спросить решение по ${code(first.number)}: «Принять рекомендацию», «Своё решение», «Отложить» или «Отклонить». `
+    + `Разбор — ${command('sf-review', task)}.`,
+  /**
+   * В последнем разделе есть замечания без решения, блокирующих среди них нет (FR-18, FR-20): все они списком.
+   * @param {string} task @param {Remark[]} remarks @param {string} way @param {string[]} questions @param {string[]} hindering отложенные блокирующие
+   */
+  remarksOpen: (task, remarks, way, questions, hindering) => `${ready(`Задача ${code(task)}: требования в \`spec.md\`, `
+    + 'проверки пройдены, есть замечания проверки без решения.', questions, hindering)}\n\n`
+    + `**Замечания без решения**\n\n${list(remarks.map(remarkLine))}\n\n`
     + `${nextStep} предложить разобрать все, выбранные или отклонить их. `
-    + `Без рекомендации — ${choice('«Повторить проверку требований»', way, task, questions, remarks)}`,
+    + `Без рекомендации — ${choice('«Повторить проверку требований»', way, task, questions, hindering)}`,
   /**
    * У всех замечаний последнего раздела есть решение (FR-20).
    * @param {string} task @param {string} way @param {string[]} questions @param {string[]} remarks отложенные блокирующие
