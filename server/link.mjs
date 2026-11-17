@@ -6,19 +6,13 @@
 import { writeFileSync } from 'node:fs';
 import { texts } from './texts.mjs';
 import { taskProblem } from './docs.mjs';
-import { codeOrLink, leadsTo, linkNumber, lowerAnchor, recordTarget } from './links.mjs';
-import { mentionPattern, numberPattern } from './records.mjs';
+import { leadsTo, linkNumber, lowerAnchor, recordPiece, recordTarget } from './links.mjs';
+import { numberPattern } from './records.mjs';
 import { docsWithKinds, placeOf, readDocs, recordCount, scopeOf } from './task.mjs';
 
 /** @typedef {import('./task.mjs').Doc} Doc */
 /** @typedef {import('./task.mjs').Scope} Scope */
 /** Счёт правок и места неоднозначных номеров. @typedef {{ added: number, fixed: number, notes: string[] }} Tally */
-
-/**
- * Кусок строки по порядку: кусок из codeOrLink, адрес http(s) или номер записи в тексте. Меняются номер в тексте,
- * код в одном апострофе, в котором только номер, и ссылка; картинка, другие куски из codeOrLink и адрес — нет.
- */
-const piece = new RegExp(`${codeOrLink}|https?://[^\\s)>\\]]+|${mentionPattern}`, 'gu');
 
 /** Только номер в обратных апострофах. */
 const codeNumber = new RegExp(`^\`(${numberPattern})\`$`);
@@ -60,7 +54,7 @@ function relink(doc, kind, scope, tally) {
     const place = placeOf(scope, kind, block);
     block.rows.forEach((row) => {
       // Последний аргумент замены — именованные группы куска.
-      parts[2 * row] = parts[2 * row].replace(piece, (match, ...rest) => rewrite({ scope, doc, place, tally }, match, rest.at(-1)));
+      parts[2 * row] = parts[2 * row].replace(recordPiece, (match, ...rest) => rewrite({ scope, doc, place, tally }, match, rest.at(-1)));
     });
   }
   return parts.join('');
