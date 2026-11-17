@@ -3,13 +3,14 @@
 // блокирующие вопросы, переход к требованиям, путь проверки, замечания проверки, состояние требований и одобрения.
 // Для sf-grill, sf-spec, sf-review и sf-note; sf-note отвечает как команда этапа задачи.
 import { existsSync } from 'node:fs';
-import { failedHeading, sourcesHeading, studiedHeading, tool } from './contract.mjs';
+import { failedHeading, remarkFields, sourcesHeading, studiedHeading, tool } from './contract.mjs';
 import { texts } from './texts.mjs';
 import { inspect } from './check.mjs';
 import {
   blocks, isTask, listedSources, mentionedKeys, readText, section, sourceKey, taskFile, tasks, validName
 } from './docs.mjs';
-import { headingNumbers, isBlocking, questionBlocks } from './records.mjs';
+import { field, headingNumbers, isBlocking, questionBlocks, recordNumber } from './records.mjs';
+import { displayNumbers } from './links.mjs';
 import { approvalOf, isApproved } from './spec.mjs';
 import { openQuestions, remarksOf } from './task.mjs';
 
@@ -119,7 +120,9 @@ function requirements(task, offer = specOffer(task)) {
   const remarks = remarksOf(scope);
   const sums = approvalOf(scope.docs.spec.text);
   if (sums.approved !== '') return approvedStage(task, open, remarks.hindering, sums);
-  if (remarks.blocking.length > 0) return texts.remarksBlocking(task, remarks.blocking);
+  if (remarks.blocking.length > 0) {
+    return texts.remarksBlocking(task, headingNumbers(remarks.blocking), remark(remarks.blocking[0]));
+  }
   return [reviewStep(task, scope.docs.review.exists, offer, open, remarks), ...offer.way.tail].join('\n\n');
 }
 
@@ -144,8 +147,18 @@ function approvedStage(task, open, hindering, { approved, actual }) {
  */
 function reviewStep(task, reviewed, offer, open, { undecided, hindering }) {
   if (!reviewed) return offer.start(open, hindering);
-  if (undecided.length > 0) return texts.remarksOpen(task, undecided, offer.way.text, open, hindering);
+  if (undecided.length > 0) return texts.remarksOpen(task, undecided.map(remark), offer.way.text, open, hindering);
   return offer.again ? offer.start(open, hindering) : texts.reviewDone(task, offer.way.text, open, hindering);
+}
+
+/** Замечание для ответа: поля из файла с оформленными номерами. @param {import('./docs.mjs').Block} block @returns {import('./contract.mjs').Remark} */
+function remark(block) {
+  return {
+    number: recordNumber(block, 'R'),
+    place: displayNumbers(field(block.lines, remarkFields.place)),
+    problem: displayNumbers(field(block.lines, remarkFields.problem)),
+    advice: displayNumbers(field(block.lines, remarkFields.advice))
+  };
 }
 
 /**
