@@ -104,8 +104,8 @@ export function remarksOf(scope) {
   const latest = latestRemarks(scope.docs.review.blocks);
   const undecided = latest.filter((block) => remarkDecision(block) === '');
   return {
-    undecided: headingNumbers(undecided),
-    blocking: headingNumbers(undecided.filter(isBlockingRemark)),
+    undecided,
+    blocking: undecided.filter(isBlockingRemark),
     hindering: headingNumbers(latest.filter(hindersApproval))
   };
 }

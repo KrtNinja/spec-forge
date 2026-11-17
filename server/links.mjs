@@ -4,7 +4,8 @@
 import { existsSync } from 'node:fs';
 import { posix } from 'node:path';
 import { texts } from './texts.mjs';
-import { kindOf, numberPattern, recordNumber } from './records.mjs';
+import { code } from './text-parts.mjs';
+import { kindOf, mentionPattern, numberPattern, recordNumber } from './records.mjs';
 import { docsWithKinds, homeOf, recordCount } from './task.mjs';
 
 /** @typedef {import('./task.mjs').Scope} Scope */
@@ -28,6 +29,9 @@ export const codeOrLink = [
 ].join('|');
 const markdownLink = new RegExp(codeOrLink, 'g');
 
+/** Кусок строки для link и показа номеров: код или ссылка целиком, адрес http(s), номер в тексте. */
+export const recordPiece = new RegExp(`${codeOrLink}|https?://[^\\s)>\\]]+|${mentionPattern}`, 'gu');
+
 /** Текст ссылки — номер записи, можно в обратных апострофах. */
 const numberText = new RegExp(`^(\`?)(${numberPattern})\\1$`);
 
@@ -41,6 +45,15 @@ const recordAnchor = /^(?:[DQR]-\d+|FR-\d+(?:-[\p{L}\p{N}-]+)?)$/iu;
 export function linkNumber(text) {
   const match = numberText.exec(text);
   return match ? match[2] : '';
+}
+
+/** Номера и ссылки с текстом-номером — кодом; остальной текст поля замечания не меняется. @param {string} value */
+export function displayNumbers(value) {
+  return value.replace(recordPiece, (match, ...rest) => {
+    const { image, text, target } = rest.at(-1);
+    const number = image ? '' : linkNumber(target === undefined ? match : text);
+    return number === '' ? match : code(number);
+  });
 }
 
 /**
